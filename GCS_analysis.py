@@ -1,11 +1,9 @@
 import os
 from file_functions import *
-from classify_landforms import *
+from classify_landforms_GUI import *
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import arcpy
-arcpy.env.overwriteOutput = True
 from Tkinter import *
 import logging
 init_logger(__file__)
@@ -23,7 +21,7 @@ Store in a dict (like JSON objects) with key = filename (or discharge, if given)
 Analyses between flows vs independent analyses for each flow
 
 between all flows:
-correlation between C(Z,W)s
+correlation between C(Z_S,W_s)s
 
 between some flows:
 hierarchical landform abundances/sequencing
@@ -36,6 +34,84 @@ outputs:
 
 '''
 
+def flow_cov_corrs(data):
+    '''
+    Computes binary correlation between C(Z_s,W_s)'s for each pair of flows
+    '''
+    output = []
+    
+    flow_names = sorted(data.keys())
+    reach_names = sorted(data.values()[0].keys())
+    
+    #create datafranes of correlations between flows for each reach
+    for reach_name in reach_names:
+        #the (titled) dataframe to output for each reach
+        reach_df = DF(index = flow_names, columns = flow_names, title = reach_name)
+        
+        #loop for rows, loop for columns
+        for flow_rkey in flow_names:
+            for flow_ckey in flow_names:
+                #covariance series corresponding to flow row
+                czw_r = data[flow_rkey][reach_name]['Z_s_W_s'].tolist()
+                #covariance series corresponding to flow column
+                czw_c = data[flow_ckey][reach_name]['Z_s_W_s'].tolist()
+                #add correlation between the series to dataframe
+                reach_df.loc[flow_rkey, flow_ckey] = np.corrcoef(czw_r, czw_c)[0][1]
+        
+        output.append(reach_df)
+        
+    return output
+
+
+def czw_means(data):
+    '''
+    Computes mean C(Z_s,W_s) values for each flow and reach
+    '''
+    
+    flow_names = sorted(data.keys())
+    reach_names = sorted(data.values()[0].keys())
+    
+    output = DF(index = flow_names, columns = reach_names, title = 'Mean C(Z_s,W_s)')
+    
+    for flow in flow_names:
+        for reach in reach_names:
+            czw = data[flow][reach]['Z_s_W_s'].tolist()
+            output.loc[flow, reach] = np.mean(czw)
+    
+    return output
+
+
+def czw_pos_percents(data):
+    '''
+    Computes percent of C(Z_s,W_s) values above 0 for each flow and reach
+    '''
+    
+    flow_names = sorted(data.keys())
+    reach_names = sorted(data.values()[0].keys())
+    
+    output = DF(index = flow_names, columns = reach_names, title = 'Percent of C(Z_s,W_s) > 0')
+    
+    for flow in flow_names:
+        for reach in reach_names:
+            czw = data[flow][reach]['Z_s_W_s'].tolist()
+            n = len(czw)
+            num_above_0 = len([x for x in czw if x>0])
+            percent = num_above_0*100.0/n
+            output.loc[flow, reach] = percent
+    
+    return output
+    
+def zs_percents(data):
+    '''
+    Computes percent of abs(Z_s) values above 1 for each flow and reach
+    '''
+    
+
+def ws_percents(data):
+    '''
+    Computes percent of abs(W_s) values above 1 for each flow and reach
+    '''
+        
 
 def analysis_1(flows, reaches = None, zs = 'Z_s', ws = 'W_s', cov = 'Z_s_W_s'):
     '''Computes mean covariance, percent of covariance above/below 0, Pearson's correlation coefficient between Z_s and W_s
@@ -328,30 +404,107 @@ def analysis_6(flows, zs = 'Z_s', ws = 'W_s', cov = 'Z_s_W_s', code = 'code'):
     return ranked_hierarchies
     
 
-def complete_analysis(tables):
-    '''Executes various analyses on tables (one table per discharge) containing columns for dist_down, Z_s, W_s, and Z_s_W_s'''
+def clean_in_data(tables, reach_breaks = None):
+    '''
+    Structures data for all further analyses
+    
+    Args:
+        tables: a list of filenames, each a .csv table for a particular discharge with the same number of rows, containing columns for dist_down, Z (detrended), W
+        reach_breaks: a list of indices where new reaches begin. If reach_breaks == None, it will just look at the entire dataset
+    
+    Returns:
+        a dict of dicts containing dataframes:
+            top level keys: original filenames/discharges
+            top level values: a dict
+            second level keys: section of river, i.e. "All", "Reach 1", "Reach 2", ...
+            second level values: pandas dataframes for the discharge specified by key 1 and reach specified by key 2
+            
+            In each dataframe, columns are added for standardized Z_s, W_s, covariance series Z_s_W_s, and code (GCS landform classification)
+    '''
+    
+    #make sure tables all have same number of rows!
+    
+    data = {}
+    
+    for table in tables:
+        
+        #ensures each table has columns named dist_down, Z, and W for distance downstream, detrended elevation, and channel width
+        clean_in_table(table)
+        #creates columns for standardized Z_s and W_s
+        standardize(table)
+        #creates column Z_s_W_s for covariance series between standardized detrended elevation and standardized channel width
+        std_covar_series(table)
+        #adds column "code" for landforms based on covariance value
+        landforms(table)
+        
+        #split up into second level dict based on reach
+        if reach_breaks != None:
+            df = pd.read_csv(table)
+            table_dict = {'All': df}
+            
+            reach_indices = split_list(df.index.tolist(), reach_breaks)
+            i = 1 #reach number
+            for reach in reach_indices:
+                reach_df = df.loc[reach]
+                table_dict['Reach %i'%i] = reach_df
+                i += 1
+            
+            data[table] = table_dict
+            
+            
+        
+        #if no reach breaks, just have one second level key: "All"
+        else:
+            df = pd.read_csv(table)
+            table_dict = {'All': df}
+            data[table] = table_dict
+    
+    
+    
+    
+    return data
+    
 
+
+def complete_analysis(tables, reach_breaks = None):
+    '''Executes various analyses'''
+    
+    logging.info('Cleaning input data...')
+    data = clean_in_data(tables, reach_breaks = reach_breaks)
+    logging.info('OK')
+    
+    logging.info('Computing C(Z_s,W_s) correlation between flows...')
+    corrs = flow_cov_corrs(data)
+    logging.info('OK')
+    
+    logging.info('Computing mean C(Z_s,W_s)...')
+    means = czw_means(data)
+    logging.info('OK')
+    
+    logging.info('Computing percentage of C(Z_s,W_s) values > 0')
+    percents = czw_pos_percents(data)
+    logging.info('OK')
+    
+    
+    percents.show()
+    
+    
+    return data
 
 if __name__ == '__main__':
-
+    '''
     tables = []
     flows = []
     for table in tables:
-        clean_in_table(table)
-        standardize(table)
-        std_covar_series(table)
-        df = classify_landforms(table)
         df = classify_landform_polygons(table, table.replace('_joined_table.csv', '.shp') )
-        flows.append(df)
+    '''
 
-    df_list = analysis_1(flows)
-
-
+    
     #make the GUI window
     root = Tk()
     root.wm_title('GCS Analysis')
 
-    L1 = Label(root, text = 'GCS Data Tables')
+    L1 = Label(root, text = 'GCS Data Tables: ')
     L1.grid(sticky = E, row = 0, column = 1)
     E1 = Entry(root, bd = 5)
     E1.grid(row = 0, column = 2)
@@ -360,3 +513,15 @@ if __name__ == '__main__':
                                                                 )
                 )
     b1.grid(sticky = W, row = 0, column = 3)
+    
+    L2 = Label(root, text = 'Reach Breaks: ')
+    L2.grid(sticky = E, row = 1, column = 1)
+    E2 = Entry(root, bd = 5)
+    E2.grid(row = 1, column = 2)
+    
+    b = Button(root, text = '    Run    ', command = lambda: complete_analysis(tables = list(root.tk.splitlist(E1.get())),
+                                                                                reach_breaks = map(int,E2.get().split(',')) if E2.get() != '' else None
+                                                                                )
+                )
+    b.grid(sticky = W, row = 2, column = 2)
+    root.mainloop()
