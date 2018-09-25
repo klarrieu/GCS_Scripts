@@ -61,6 +61,26 @@ def flow_cov_corrs(data):
         output.append(reach_df)
         
     return output
+    
+
+def zw_corrs(data):
+    '''
+    Computes the correlation between Z_s and W_s for each flow and reach
+    '''
+    
+    flow_names = sorted(data.keys())
+    reach_names = sorted(data.values()[0].keys())
+    
+    output = DF(index = flow_names, columns = reach_names, title = 'Corr(Z_s,W_s)')
+    
+    for flow in flow_names:
+        for reach in reach_names:
+            zs = data[flow][reach]['Z_s'].tolist()
+            ws = data[flow][reach]['W_s'].tolist()
+            corr = np.corrcoef(zs,ws)[0][1]
+            output.loc[flow,reach] = corr
+    
+    return output
 
 
 def czw_means(data):
@@ -105,12 +125,40 @@ def zs_percents(data):
     '''
     Computes percent of abs(Z_s) values above 1 for each flow and reach
     '''
+    flow_names = sorted(data.keys())
+    reach_names = sorted(data.values()[0].keys())
+    
+    output = DF(index = flow_names, columns = reach_names, title = 'Percent of |Z_s| > 0')
+    
+    for flow in flow_names:
+        for reach in reach_names:
+            zs = data[flow][reach]['Z_s'].tolist()
+            n = len(zs)
+            num_abs_above_1 = len([x for x in zs if abs(zs)>1])
+            percent = num_abs_above_1*100.0/n
+            output.loc[flow, reach] = percent
+   
+    return output         
     
 
 def ws_percents(data):
     '''
     Computes percent of abs(W_s) values above 1 for each flow and reach
     '''
+    flow_names = sorted(data.keys())
+    reach_names = sorted(data.values()[0].keys())
+    
+    output = DF(index = flow_names, columns = reach_names, title = 'Percent of |W_s| > 0')
+    
+    for flow in flow_names:
+        for reach in reach_names:
+            ws = data[flow][reach]['W_s'].tolist()
+            n = len(ws)
+            num_abs_above_1 = len([x for x in ws if abs(ws)>1])
+            percent = num_abs_above_1*100.0/n
+            output.loc[flow, reach] = percent
+        
+    return output
         
 
 def analysis_1(flows, reaches = None, zs = 'Z_s', ws = 'W_s', cov = 'Z_s_W_s'):
@@ -474,7 +522,11 @@ def complete_analysis(tables, reach_breaks = None):
     logging.info('OK')
     
     logging.info('Computing C(Z_s,W_s) correlation between flows...')
-    corrs = flow_cov_corrs(data)
+    czw_corrs = flow_cov_corrs(data)
+    logging.info('OK')
+    
+    logging.info('Computing Corr(Z_s,W_s)...')
+    corrs = zw_corrs(data)
     logging.info('OK')
     
     logging.info('Computing mean C(Z_s,W_s)...')
@@ -485,11 +537,26 @@ def complete_analysis(tables, reach_breaks = None):
     percents = czw_pos_percents(data)
     logging.info('OK')
     
+    logging.info('Computing percentage of abs(Z_s) values > 1')
+    zs_percntz = zs_percents(data)
+    logging.info('OK')
     
-    percents.show()
+    logging.info('Computing percentage of abs(W_s) values > 1')
+    ws_percntz = ws_percents(data)
+    logging.info('OK')
     
+    
+    logging.info('Writing outputs to files...')
+    
+    #save tables to excel files/sheets
+    
+    #save images of plots
+    
+    
+    logging.info('OK')
     
     return data
+    
 
 if __name__ == '__main__':
     '''
