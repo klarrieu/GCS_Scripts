@@ -46,7 +46,7 @@ def flow_cov_corrs(data):
     #create datafranes of correlations between flows for each reach
     for reach_name in reach_names:
         #the (titled) dataframe to output for each reach
-        reach_df = DF(index = flow_names, columns = flow_names, title = reach_name)
+        reach_df = DF(index = flow_names, columns = flow_names, title = 'Corr(Czw_i,Czw_j) %s'%reach_name)
         
         #loop for rows, loop for columns
         for flow_rkey in flow_names:
@@ -128,13 +128,13 @@ def zs_percents(data):
     flow_names = sorted(data.keys())
     reach_names = sorted(data.values()[0].keys())
     
-    output = DF(index = flow_names, columns = reach_names, title = 'Percent of |Z_s| > 0')
+    output = DF(index = flow_names, columns = reach_names, title = 'Percent of |Z_s| > 1')
     
     for flow in flow_names:
         for reach in reach_names:
             zs = data[flow][reach]['Z_s'].tolist()
             n = len(zs)
-            num_abs_above_1 = len([x for x in zs if abs(zs)>1])
+            num_abs_above_1 = len([x for x in zs if abs(x)>1])
             percent = num_abs_above_1*100.0/n
             output.loc[flow, reach] = percent
    
@@ -148,18 +148,56 @@ def ws_percents(data):
     flow_names = sorted(data.keys())
     reach_names = sorted(data.values()[0].keys())
     
-    output = DF(index = flow_names, columns = reach_names, title = 'Percent of |W_s| > 0')
+    output = DF(index = flow_names, columns = reach_names, title = 'Percent of |W_s| > 1')
     
     for flow in flow_names:
         for reach in reach_names:
             ws = data[flow][reach]['W_s'].tolist()
             n = len(ws)
-            num_abs_above_1 = len([x for x in ws if abs(ws)>1])
+            num_abs_above_1 = len([x for x in ws if abs(x)>1])
             percent = num_abs_above_1*100.0/n
             output.loc[flow, reach] = percent
         
     return output
         
+
+def ww_runs_z(data):
+    '''
+    Computes runs and expected runs for values above/below median Z_s
+    '''
+    flow_names = sorted(data.keys())
+    reach_names = sorted(data.values()[0].keys())
+    
+    output = []
+    
+    #df for each reach, row for each flow, columns are num of runs, expected runs, exp runs std dev, z
+    for reach_name in reach_names:
+        #the (titled) dataframe to output for each reach
+        reach_df = DF(index = flow_names, columns = ['runs', 'expected runs', 'expected std', 'Z'], title = 'Z_s     WW runs test %s'%reach_name)
+        
+        #loop for rows, loop for columns
+        for flow_rkey in flow_names:
+            for flow_ckey in flow_names:
+                #covariance series corresponding to flow row
+                czw_r = data[flow_rkey][reach_name]['Z_s_W_s'].tolist()
+                #covariance series corresponding to flow column
+                czw_c = data[flow_ckey][reach_name]['Z_s_W_s'].tolist()
+                #add correlation between the series to dataframe
+                reach_df.loc[flow_rkey, flow_ckey] = np.corrcoef(czw_r, czw_c)[0][1]
+        
+        output.append(reach_df)
+    
+    
+    for flow in flow_names:
+        for reach in reach_names:
+    
+    return output
+
+def ww_runs_w(data):
+    '''
+    Computes runs and expected runs for values above/below median W_s
+    '''
+
 
 def analysis_1(flows, reaches = None, zs = 'Z_s', ws = 'W_s', cov = 'Z_s_W_s'):
     '''Computes mean covariance, percent of covariance above/below 0, Pearson's correlation coefficient between Z_s and W_s
@@ -545,10 +583,23 @@ def complete_analysis(tables, reach_breaks = None):
     ws_percntz = ws_percents(data)
     logging.info('OK')
     
+    logging.info('Conducting Wald-Wolfowitz runs tests...')
+    
+    logging.info('OK')
+    
     
     logging.info('Writing outputs to files...')
     
     #save tables to excel files/sheets
+    writer = pd.ExcelWriter('output_data.xlsx', engine = 'xlsxwriter')
+    
+    for czw_corr in czw_corrs:
+        czw_corr.to_excel(writer, sheet_name = czw_corr.title)
+    
+    for df in [corrs, means, percents, zs_percntz, ws_percntz]:
+        df.to_excel(writer, sheet_name = df.title)
+
+    writer.save()
     
     #save images of plots
     

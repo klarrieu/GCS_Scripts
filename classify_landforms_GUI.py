@@ -3,21 +3,29 @@ from file_functions import *
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+'''
 import arcpy
 arcpy.env.overwriteOutput = True
+'''
 from Tkinter import *
 import logging
 init_logger(__file__)
 
-def clean_in_table(table, w_field = 'Width', z_field = 'MEAN'):
-    '''Selects columns we care about and renames them'''
+def clean_in_table(table, w_field = 'Width', z_field = 'MEAN', dist_field = 'ET_STATION'):
+    '''Renames columns corresponding to W, Z, and dist_down, if they are not already columns'''
     check_use(table)
     df = pd.read_csv(table)
-    try:
-        df = df.rename(columns = {z_field:'Z', w_field:'W'})
-    except Exception, e:
-        logging.exception(e)
-        raise Exception(e)
+    
+    for old_name, replacement_name in [(w_field, 'W'), (z_field, 'Z'), (dist_field, 'dist_down')]:
+        if replacement_name in df.columns.tolist():
+            logging.info('%s is already a field in %s, leaving column as is.'%(replacement_name, table))
+        else:
+            if old_name in df.columns.tolist():
+                df.rename(columns = {old_name: replacement_name})
+                logging.info('Renamed %s to %s in %s'%(old_name, replacement_name, table))
+            else:
+                logging.exception('Cannot find column named %s or %s in %s'%(old_name, replacement_name, table))
+
     
     df.to_csv(table, index = False)
 
@@ -160,22 +168,23 @@ def GCS_plot(table, units = 'm'):
     plt.show()
     return
 
-def main_classify_landforms(tables, w_field, z_field, make_plots = True):
+def main_classify_landforms(tables, w_field, z_field, dist_field, make_plots = True):
     '''Classifies river segments as normal, wide bar, constricted pool, oversized, or nozzle
 
     Args:
         tables: a list of attribute table filenames for each set of wetted polygon rectangular XS's
         w_field: name of the attribute table field corresponding to width
         z_field: name of the attribute table field corresponding to detrended bed elevation
+        dist_field: name of the attribute table field corresponding to distance downstream
         
     Returns:
         For each input table:
-            a .csv containing W, Z, W_s, Z_s, W_s*Z_s, and landform classification/code fields
+            a .csv containing dist_down, W, Z, W_s, Z_s, W_s*Z_s, and landform classification/code fields
             adds these computed values to attribute tables of corresponding wetted polygon rectangular XS's
     '''
     out_polys = []
     for table in tables:
-        clean_in_table(table, w_field = w_field, z_field = z_field)
+        clean_in_table(table, w_field = w_field, z_field = z_field, dist_field = dist_field)
         standardize(table)
         std_covar_series(table)
         df = landforms(table)
@@ -229,10 +238,15 @@ if __name__ == '__main__':
     E3 = Entry(root, bd = 5)
     E3.insert(END, 'Z')
     E3.grid(row = 2, column = 2)
+    
+    L4 = Label(root, text = 'Distance Downstream Field:')
+    L4.grid(sticky = E, row = 3, column = 1)
+    E4 = Entry(root, bd = 5)
 
     b = Button(root, text = '   Run    ', command = lambda: main_classify_landforms(tables = list(root.tk.splitlist(E1.get())),
                                                                                     w_field = E2.get(),
-                                                                                    z_field = E3.get()
+                                                                                    z_field = E3.get(),
+                                                                                    dist_field = E4.get()
                                                                                     )
                )
     b.grid(sticky = W, row = 9, column = 2)
