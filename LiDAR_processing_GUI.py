@@ -1,7 +1,6 @@
 '''
 Functionality to add:
     choose las or laz output
-    check size of biggest tile to make sure small enough (1.5M pt limit)
     set default values for lasground_new params?
     clip structures step
     use veg polygon (if given) instead of inverse ground polygon to clip veg points
