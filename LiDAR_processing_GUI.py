@@ -65,6 +65,7 @@ def get_largest(directory):
     for name in os.listdir(directory):
         size = os.path.getsize(os.path.join(directory,name))
         if size > largest_so_far:
+            largest_so_far = size
             filename = name
     
     return os.path.join(directory,filename)
@@ -79,7 +80,6 @@ def pts(filename,lastoolsdir):
     f = open(txt, 'r')
     text = f.readlines()
     for line in text:
-        print repr(line)
         if line.endswith('element(s)\n'):
             d = line.split(' ')
             d = d[d.index('for')+1]
