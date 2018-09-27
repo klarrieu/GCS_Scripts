@@ -325,7 +325,7 @@ if __name__ == '__main__':
     DEM = r'G:\Kenny_Rainbow_Basin\Channel_01_Analysis\DEM\RB_DEM.tif'
 
     xyz_table = station_coords(centerline, station_lines, DEM)
-    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices = [481], make_plot = True)
+    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices = [556], make_plot = True)
 
     detrended_DEM = detrend_DEM(xyz_fit_table, DEM)
     #buff = channel_buffer(centerline, buffer_size = 50)
