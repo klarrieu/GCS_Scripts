@@ -21,17 +21,17 @@ def init_logger(filename):
 def cmd(command):
     '''Executes command prompt command'''
     try:
-        res = subprocess.Popen(command, stderr = subprocess.PIPE)
+        res = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except:
         msg = 'Command failed: %s'%command
         logger.error(msg)
         raise Exception(msg)
         return
-        
-    if res.wait() != 0:
-        msg = res.communicate()[1]
-        logger.error(msg)
-        raise Exception(msg)
+    
+    msg = res.communicate()[1]
+    #if using for LAStools, get rid of the annoying LAStools licensing message.
+    msg = msg.replace('Please note that LAStools is not "free" (see http://lastools.org/LICENSE.txt)\r\ncontact \'martin.isenburg@rapidlasso.com\' to clarify licensing terms if needed.\r\n', '')
+    logger.info(msg)
     
     return
 

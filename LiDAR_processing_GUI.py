@@ -5,7 +5,6 @@ Functionality to add:
     set default values for lasground_new params?
     clip structures step
     use veg polygon (if given) instead of inverse ground polygon to clip veg points
-    check_use for files
 '''
 
 from Tkinter import *
@@ -56,8 +55,35 @@ def pd(filename):
     for line in text:
         if line.startswith('point density:'):
             d = line.split(' ')
-            d = d[d.index('only')+1]
+            d = d[d.index('returns')+1]
             return float(d)
+
+def get_largest(directory):
+    '''returns name of largest file in directory'''
+    largest_so_far = 0
+    filename = ''
+    for name in os.listdir(directory):
+        size = os.path.getsize(os.path.join(directory,name))
+        if size > largest_so_far:
+            filename = name
+    
+    return os.path.join(directory,filename)
+
+def pts(filename,lastoolsdir):
+    '''returns number of points in las file'''
+
+    #call lasinfo on the file
+    cmd('%slasinfo.exe -i %s -otxt -histo number_of_returns 1'%(lastoolsdir,filename))
+    #name of txt output file from lasinfo
+    txt = filename[:-4]+'.txt'
+    f = open(txt, 'r')
+    text = f.readlines()
+    for line in text:
+        print repr(line)
+        if line.endswith('element(s)\n'):
+            d = line.split(' ')
+            d = d[d.index('for')+1]
+            return int(d)
 
 #the main function that runs when 'run' button is clicked
 def process_lidar(lastoolsdir,
@@ -65,6 +91,7 @@ def process_lidar(lastoolsdir,
                   ground_poly,
                   cores,
                   units_code,
+                  keep_orig_pts,
                   coarse_step,
                   coarse_bulge,
                   coarse_spike,
@@ -76,7 +103,7 @@ def process_lidar(lastoolsdir,
                   fine_down_spike,
                   fine_offset
                   ):
-    '''Executes main LAStools processing workflow. See Word doc for more info.'''
+    '''Executes main LAStools processing workflow. See readme for more info.'''
     
     classes = ['01-Default',
                '02-Ground',
@@ -173,7 +200,7 @@ def process_lidar(lastoolsdir,
     #use max point density out of all files to determine tile size
     max_d = max(ds)
     
-    #width of square tile so we have max of 1.5M pts per tile
+    #width of square tile so we have max of 1.5M pts per tile (assuming same number of points per tile)
     #throw in another factor of 0.5 to make sure tiles will be small enough, round to nearest 10
     tile_size = round(0.5*np.sqrt((1.5*10**6)/max_d), -1)
 
@@ -183,9 +210,38 @@ def process_lidar(lastoolsdir,
     
     #call LAStools command to create tiling
     cmd('%slastile.exe -lof %s -cores %i -o tile.las -tile_size %i -buffer 5 -faf -odir %s -olas'%(lastoolsdir, lof, cores, tile_size, odir))
+
+    logging.info('OK')
     
-    #add check to make sure tiles are small enough?
-    #spatially index before tiling when running in parallel?
+    #check to make sure tiles are small enough
+    logging.info('Checking if largest file has < 1.5M pts (to avoid licensing restrictions)...')
+    largest_file = get_largest(odir)
+    num = pts(largest_file, lastoolsdir)
+    if num < 1500000:
+        logging.info('Largest file has %i points, tiles small enough.'%num)
+    else:
+        logging.info('Tile size not small enough. Retrying with a smaller tile size...')
+        while num >= 1500000:
+            #delete original set of tiles
+            folder = odir
+            for the_file in os.listdir(folder):
+                file_path = os.path.join(folder, the_file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                except:
+                    logging.warning('Couldn\'nt delete %s'%file_path)
+            #redo tiling
+            tile_size = int(tile_size*num*1.0/1500000)
+            logging.info('Using tile size of %i'%tile_size)
+
+            cmd('%slastile.exe -lof %s -cores %i -o tile.las -tile_size %i -buffer 5 -faf -odir %s -olas'%(lastoolsdir, lof, cores, tile_size, odir))
+            #recheck largest tile number of points
+            logging.info('Checking if largest file has < 1.5M pts (to avoid licensing restrictions)...')
+            largest_file = get_largest(odir)
+            num = pts(largest_file, lastoolsdir)
+            if num >= 1500000:
+                logging.info('Tile size not small enough. Retrying with a smaller tile size...')
     
     logging.info('OK')
     
@@ -356,10 +412,15 @@ def process_lidar(lastoolsdir,
 
     logging.info('OK')
 
-    logging.info('Merging new and original ground points...')
     
     #merge processed ground points with original data set ground points
-    sources = [lidardir+'07a_ground_clipped_coarse/',lidardir+'07b_ground_clipped_fine/', lidardir+'00_separated'+'/'+'02-Ground'+'/']
+    if keep_orig_pts == True:
+        logging.info('Merging new and original ground points...')
+        sources = [lidardir+'07a_ground_clipped_coarse/',lidardir+'07b_ground_clipped_fine/', lidardir+'00_separated'+'/'+'02-Ground'+'/']
+    #just use new points
+    else:
+        logging.info('Merging new ground points...')
+        sources = [lidardir+'07a_ground_clipped_coarse/',lidardir+'07b_ground_clipped_fine/']
     lof = lof_text(lastoolsdir, sources)
     odir = lidardir+'08_ground_merged/'
     
@@ -408,9 +469,13 @@ def process_lidar(lastoolsdir,
     #########################
     #merge with original veg points
 
-    logging.info('Merging new and original vegetation points...')
-          
-    sources = [lidardir+'11_veg_new_clipped/', lidardir+'00_separated'+'/'+'05-Vegetation'+'/']
+    if keep_orig_pts == True:
+        logging.info('Merging new and original vegetation points...')
+        sources = [lidardir+'11_veg_new_clipped/', lidardir+'00_separated'+'/'+'05-Vegetation'+'/']
+    else:
+        logging.info('Retiling new vegetation points...')
+        sources = [lidardir+'11_veg_new_clipped/']
+        
     lof = lof_text(lastoolsdir, sources)
     odir = lidardir+'12_veg_merged/'
     
@@ -564,7 +629,12 @@ if __name__ == '__main__':
     R32.grid(sticky = W, row = 15, column = 3)
     core_num.set(16)
     
-    
+    L5 = Label(root, text = 'Keep original ground/veg points: ')
+    L5.grid(sticky = E, row = 16, column = 1)
+    keep_originals = BooleanVar()
+    C1 = Checkbutton(root, variable = keep_originals)
+    C1.grid(sticky = W, row = 16, column = 2)
+    keep_originals.set(True)
     
         
     #make 'Run' button in GUI to call the process_lidar() function
@@ -573,6 +643,7 @@ if __name__ == '__main__':
                                                                            ground_poly = E3.get(),
                                                                            cores = core_num.get(),
                                                                            units_code = unit_var.get()[1:-1],
+                                                                           keep_orig_pts = keep_originals.get(),
                                                                            coarse_step = E1a.get(),
                                                                            coarse_bulge = E2a.get(),
                                                                            coarse_spike = E3a.get(),
