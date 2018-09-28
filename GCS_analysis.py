@@ -1,3 +1,4 @@
+from file_functions import *
 from classify_landforms_GUI import *
 import pandas as pd
 import numpy as np
@@ -177,11 +178,9 @@ def ww_runs_z(data):
                       title='Z_s WW runs test %s' % reach)
 
         for flow in flow_names:
-            zs = data[flow][reach]
+            zs = data[flow][reach]['Z_s'].tolist()
             run_df = runs_test(zs)
             run_df.index = [flow]
-            print(run_df)
-            print(reach_df)
             reach_df.append(run_df)
 
         output.append(reach_df)
@@ -205,7 +204,7 @@ def ww_runs_w(data):
                       title='W_s WW runs test %s' % reach)
 
         for flow in flow_names:
-            ws = data[flow][reach]
+            ws = data[flow][reach]['W_s'].tolist()
             run_df = runs_test(ws)
             run_df.index = [flow]
             reach_df.append(run_df)

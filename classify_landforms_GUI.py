@@ -7,7 +7,7 @@ import arcpy
 arcpy.env.overwriteOutput = True
 from Tkinter import *
 import logging
-init_logger(__file__)
+
 
 def clean_in_table(table, w_field = 'Width', z_field = 'MEAN', dist_field = 'ET_STATION'):
     '''Renames columns corresponding to W, Z, and dist_down, if they are not already columns'''
@@ -209,6 +209,9 @@ if __name__ == '__main__':
         df = landform_polygons(table, table.replace('_joined_table.csv', '.shp') )
     '''
 
+    # initialize logger
+    init_logger(__file__)
+
     #make the GUI window
     root = Tk()
     root.wm_title('Classify Landforms')
@@ -240,6 +243,8 @@ if __name__ == '__main__':
     L4 = Label(root, text = 'Distance Downstream Field:')
     L4.grid(sticky = E, row = 3, column = 1)
     E4 = Entry(root, bd = 5)
+    E4.insert(END, 'dist_down')
+    E4.grid(row = 3, column = 2)
 
     b = Button(root, text = '   Run    ', command = lambda: main_classify_landforms(tables = list(root.tk.splitlist(E1.get())),
                                                                                     w_field = E2.get(),
