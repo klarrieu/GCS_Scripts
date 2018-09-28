@@ -5,35 +5,6 @@ import numpy as np
 from Tkinter import *
 import logging
 
-init_logger(__file__)
-
-'''
-Data structure:
-
-Input:
-list of .csv tables, each containing same number of rows, and columns named dist_down, Z_s, W_s, Z_s_W_s
-index for division between reaches
-
-Store in a dict (like JSON objects) with key = filename (or discharge, if given), value = pandas dataframe from corresponding .csv
-
-
-Analyses between flows vs independent analyses for each flow
-
-between all flows:
-correlation between C(Z_S,W_s)s
-
-between some flows:
-hierarchical landform abundances/sequencing
-
-independent:
-% of Zs/Ws/Czw above/below certain values
-
-outputs:
-
-
-'''
-
-
 def flow_cov_corrs(data):
     '''
     Computes binary correlation between C(Z_s,W_s)'s for each pair of flows
@@ -237,7 +208,7 @@ def ww_runs_z(data):
         for flow in flow_names:
             zs = data[flow][reach]['Z_s'].tolist()
             runs_data = runs_test(zs)
-            reach_df.loc[flow,runs_data.keys()] = runs_data.values()
+            reach_df.loc[flow, runs_data.keys()] = runs_data.values()
 
         output.append(reach_df)
 
@@ -262,58 +233,82 @@ def ww_runs_w(data):
         for flow in flow_names:
             ws = data[flow][reach]['W_s'].tolist()
             runs_data = runs_test(ws)
-            reach_df.loc[flow,runs_data.keys()] = runs_data.values()
+            reach_df.loc[flow, runs_data.keys()] = runs_data.values()
 
         output.append(reach_df)
 
     return output
 
 
-def analysis_4(df, zs='Z_s', ws='W_s', cov='Z_s_W_s', code='code'):
-    '''Computes percentage of channel each landform class occupies'''
-    n = len(df)
-    percent_oversized = sum([1 for x in df[code] if x == -2]) * 1.0 / n * 100
-    percent_const_pool = sum([1 for x in df[code] if x == -1]) * 1.0 / n * 100
-    percent_normal = sum([1 for x in df[code] if x == 0]) * 1.0 / n * 100
-    percent_wide_bar = sum([1 for x in df[code] if x == 1]) * 1.0 / n * 100
-    percent_nozzle = sum([1 for x in df[code] if x == 2]) * 1.0 / n * 100
+def landform_occupation(data):
+    '''Computes percentage of channel each landform class occupies (not nested)'''
+    flow_names = sorted(data.keys())
+    reach_names = sorted(data.values()[0].keys())
+    # code number and corresponding MU
+    code_dict = {-2: 'O', -1: 'CP', 0: 'NC', 1: 'WB', 2: 'NZ'}
 
-    data = {r'% oversized': [percent_oversized],
-            r'% constricted pool': [percent_const_pool],
-            r'% normal channel': [percent_normal],
-            r'% wide bar': [percent_wide_bar],
-            r'% nozzle': [percent_nozzle]
-            }
+    output = []
 
-    return pd.DataFrame.from_dict(data)
+    # table for each reach, row for each flow, columns for landform class, percentage as values
+    for reach in reach_names:
+
+        reach_df = DF(index=flow_names, columns=['O', 'CP', 'NC', 'WB', 'NZ'],
+                      title='%s %% Landform Composition' % reach)
+
+        for flow in flow_names:
+            code_series = data[flow][reach]['code'].tolist()
+            n = len(code_series)
+            for code in code_dict.keys():
+                mu = code_dict[code]
+                count = sum([1 for x in code_series if x == code])
+                percentage = round(count*100.0/n, 2)
+                reach_df.loc[flow, mu] = percentage
+
+        output.append(reach_df)
+
+    return output
 
 
-def analysis_5(df, zs='Z_s', ws='W_s', cov='Z_s_W_s', code='code'):
-    '''Computes percentage of time each landform type was followed by each other landform type'''
-    transitions = []
-    for c1, c2 in zip(df[code], df[code][1:]):
-        if c1 != c2:
-            transitions.append([c1, c2])
+def landform_following(data):
+    '''Computes percentage of times each landform type is followed by each other landform type type'''
+    flow_names = sorted(data.keys())
+    # code number and corresponding MU
+    code_dict = {-2: 'O', -1: 'CP', 0: 'NC', 1: 'WB', 2: 'NZ'}
 
-    code_dict = {-2: 'oversized',
-                 -1: 'const_pool',
-                 0: 'normal',
-                 1: 'wide_bar',
-                 2: 'nozzle'
-                 }
-    a = []
-    for row_code in code_dict.keys():
-        counts = []
-        for col_code in code_dict.keys():
-            count = sum([1 for x in transitions if x == [row_code, col_code]])
-            counts.append(count)
-        row = [x * 1.0 / sum(counts) * 100 for x in counts]
-        a.append(row)
+    output = []
 
-    df = pd.DataFrame(a, index=code_dict.values(), columns=code_dict.values())
-    df.index.name = 'starting unit'
-    df.columns.name = '% of time unit follows starting unit'
-    return df
+    # do not split into reaches, do for entire river segment
+    # one table per flow, starting unit as row, following unit as col, percent of times starting unit is followed by following unit as values
+    for flow in flow_names:
+
+        flow_df = DF(index=code_dict.values(), columns=code_dict.values(),
+                     title='%s %% times unit follows starting unit'%flow)
+        flow_df.index.name = 'starting unit'
+
+        code_series = data[flow]['All']['code'].tolist()
+
+        # code pairs for each transition
+        transitions = []
+        for c1, c2 in zip(code_series, code_series[1:]):
+            if c1 != c2:
+                transitions.append([c1, c2])
+
+        for start_code in code_dict.keys():
+            # n = total number of transitions for the start_code
+            n = sum([1 for x in transitions if x[0] == start_code])
+
+            for follow_code in code_dict.keys():
+                # number of times start_code is followed by follow_code
+                count = sum([1 for x in transitions if x == [start_code, follow_code]])
+
+                start_mu = code_dict[start_code]
+                follow_mu = code_dict[follow_code]
+                percentage = round(count*100.0/n, 2)
+                flow_df.loc[start_mu, follow_mu] = percentage
+
+        output.append(flow_df)
+
+    return output
 
 
 def analysis_6(flows, zs='Z_s', ws='W_s', cov='Z_s_W_s', code='code'):
@@ -385,7 +380,7 @@ def clean_in_data(tables, reach_breaks=None):
         landforms(table)
 
         # split up into second level dict based on reach
-        if reach_breaks != None:
+        if reach_breaks is not None:
             df = pd.read_csv(table)
             table_dict = {'All': df}
 
@@ -443,17 +438,26 @@ def complete_analysis(tables, reach_breaks=None):
     ww_test_w = ww_runs_w(data)
     logging.info('OK')
 
+    logging.info('Determining landform abundance...')
+    landform_percents = landform_occupation(data)
+    logging.info('OK')
+
+    logging.info('Determining landform sequencing...')
+    follows = landform_following(data)
+    logging.info('OK')
+
     logging.info('Writing outputs to files...')
 
     # save tables to excel files/sheets
     writer = pd.ExcelWriter('GCS_output_data.xlsx', engine='xlsxwriter')
 
-    for df_list in [czw_corrs, ww_test_z, ww_test_w]:
+    for df_list in [czw_corrs, ww_test_z, ww_test_w, landform_percents, follows]:
         for df in df_list:
-            df.to_excel(writer, sheet_name=df.title)
+            # 31 character limit for excel sheet name
+            df.to_excel(writer, sheet_name=df.title[:31])
 
     for df in [corrs, means, percents, zs_percntz, ws_percntz]:
-        df.to_excel(writer, sheet_name=df.title)
+        df.to_excel(writer, sheet_name=df.title[:31])
 
     writer.save()
 
@@ -472,6 +476,8 @@ if __name__ == '__main__':
         df = classify_landform_polygons(table, table.replace('_joined_table.csv', '.shp') )
     '''
 
+    # initialize logger
+    init_logger(__file__)
     # make the GUI window
     root = Tk()
     root.wm_title('GCS Analysis')
