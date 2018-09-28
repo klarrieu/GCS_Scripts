@@ -310,33 +310,39 @@ def landform_following(data):
 
     return output
 
+def landform_nesting(data):
+    '''Identifies abundance of each hierarchically nested landform'''
+    flow_names = sorted(data.keys())
+    # code number and corresponding MU
+    code_dict = {-2: 'O', -1: 'CP', 0: 'NC', 1: 'WB', 2: 'NZ'}
 
-def analysis_6(flows, zs='Z_s', ws='W_s', cov='Z_s_W_s', code='code'):
-    '''Identifies abundance and percentage of each hierarchical landform nesting permutation'''
+    output = DF(columns=sorted(flow_names, reverse=True) + ['Count', '%% of River'],
+                title='Nested landform abundance')
 
-    # combine code from each flow to create hierarchical landform series
-    # must have wetted rectangle at every station so indices line up!
-    # check that each flow dataframe is same length
-    if not all(len(flow) == len(flows[0]) for flow in flows):
-        raise Exception('Dataframes need to be same length for all flows.')
+    # output table containing flood, bankfull, basefull landforms, count, and percentage as columns, row for each sequence in descending order of abundance
+    flood_codes = data[flow_names[2]]['All']['code'].tolist()
+    bankfull_codes = data[flow_names[1]]['All']['code'].tolist()
+    baseflow_codes = data[flow_names[0]]['All']['code'].tolist()
 
-    hierarchy_codes = zip(*[flow[code] for flow in flows])
+    nested_landforms = list(zip(flood_codes, bankfull_codes, baseflow_codes))
+    unique_nests = list(set(nested_landforms))
 
-    # get unique hierarchical nesting permutations
-    unique_nests = list(set(hierarchy_codes))
-
-    # count number of times each unique nesting permutation occurs
+    # initialize list of lists to count abundance
     unique_nest_counts = list(np.zeros(len(unique_nests), dtype=int))
-    for hier_code in hierarchy_codes:
-        i = unique_nests.index(hier_code)
+
+    for nest in nested_landforms:
+        i = unique_nests.index(nest)
         unique_nest_counts[i] += 1
 
-    # rank the permutations by count
-    ranked_hierarchies = sorted(zip(unique_nest_counts, unique_nests))[::-1]
+    nest_abundances = list(zip(unique_nests, unique_nest_counts))
+    nest_abundances.sort(key=lambda x: x[1])
 
-    # rank permutations
+    for i, nest in enumerate(nest_abundances):
+        n = len(nested_landforms)
+        p = round(nest[1]*100.0/n, 2)
+        output.loc[i] = [code_dict[nst] for nst in nest[0]] + [nest[1], p]
 
-    return ranked_hierarchies
+    return output
 
 
 def clean_in_data(tables, reach_breaks=None):
