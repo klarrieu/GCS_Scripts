@@ -162,6 +162,63 @@ def ws_percents(data):
     return output
 
 
+def runs_test(series):
+    '''
+    Does WW runs test for values above/below median of series
+
+    Args:
+        series (list): a list of values for which to perform the Wald-Wolfowitz runs test for values below/above median
+
+    Returns:
+        A dataframe containing the following:
+            number of runs
+            number of expected runs (if random)
+            expected standard deviation of number of runs (if random)
+            Z: number of standard deviations difference between actual and expected number of run (standard deviation of num. of runs if random)
+    '''
+
+    m = np.median(series)
+    # omit values from series equal to the median
+    test_series = [x for x in series if x != m]
+    run_lengths = []
+    count = 0
+    for i, vals in enumerate(zip(test_series, test_series[1:])):
+        x1, x2 = vals
+        count += 1
+        # if transition between value above median to value equal or below median, end the run
+        if (x1 > m and x2 < m) or (x1 < m and x2 > m):
+            run_lengths.append(count)
+            count = 0
+        # if on the last value, but no transition, then last value is part of current run
+        if i == len(test_series) - 2:
+            count += 1
+            run_lengths.append(count)
+            count = 0
+
+    # total number of values (excluding median values)
+    n = len(test_series)
+    # num of values above median
+    n_plus = sum([1 for x in test_series if x > m])
+    # num of values below median
+    n_minus = n - n_plus
+    # expected number of runs if random
+    exp_runs = 2 * n_plus * n_minus * 1.0 / n + 1
+    # actual number of runs
+    num_runs = len(run_lengths)
+    # standard deviation of expected num of runs if random
+    exp_run_std = np.sqrt((exp_runs - 1) * (exp_runs - 2) * 1.0 / (n - 1))
+    # number of standard deviations (of exected run length) that the actual run count differs from WW expected run count
+    z_diff_expected = (num_runs - exp_runs) * 1.0 / exp_run_std
+
+    data = {'Runs': num_runs,
+            'Expected Runs': exp_runs,
+            'Expected Run StDev': exp_run_std,
+            'Z': z_diff_expected
+            }
+
+    return data
+
+
 def ww_runs_z(data):
     '''
     Computes runs and expected runs for values above/below median Z_s
@@ -179,9 +236,8 @@ def ww_runs_z(data):
 
         for flow in flow_names:
             zs = data[flow][reach]['Z_s'].tolist()
-            run_df = runs_test(zs)
-            run_df.index = [flow]
-            reach_df.append(run_df)
+            runs_data = runs_test(zs)
+            reach_df.loc[flow,runs_data.keys()] = runs_data.values()
 
         output.append(reach_df)
 
@@ -205,9 +261,8 @@ def ww_runs_w(data):
 
         for flow in flow_names:
             ws = data[flow][reach]['W_s'].tolist()
-            run_df = runs_test(ws)
-            run_df.index = [flow]
-            reach_df.append(run_df)
+            runs_data = runs_test(ws)
+            reach_df.loc[flow,runs_data.keys()] = runs_data.values()
 
         output.append(reach_df)
 
@@ -282,60 +337,7 @@ def analysis_1(flows, reaches=None, zs='Z_s', ws='W_s', cov='Z_s_W_s'):
         return df_list
 
 
-def runs_test(series):
-    '''Does WW runs test for values above/below median of series
 
-    Args:
-        series (list): a list of values for which to perform the Wald-Wolfowitz runs test for values below/above median
-
-    Returns:
-        A dataframe containing the following:
-            number of runs
-            number of expected runs (if random)
-            expected standard deviation of number of runs (if random)
-            Z: number of standard deviations difference between actual and expected number of run (standard deviation of num. of runs if random)
-    '''
-
-    m = np.median(series)
-    # omit values from series equal to the median
-    test_series = [x for x in series if x != m]
-    run_lengths = []
-    count = 0
-    for i, vals in enumerate(zip(test_series, test_series[1:])):
-        x1, x2 = vals
-        count += 1
-        # if transition between value above median to value equal or below median, end the run
-        if (x1 > m and x2 < m) or (x1 < m and x2 > m):
-            run_lengths.append(count)
-            count = 0
-        # if on the last value, but no transition, then last value is part of current run
-        if i == len(test_series) - 2:
-            count += 1
-            run_lengths.append(count)
-            count = 0
-
-    # total number of values (excluding median values)
-    n = len(test_series)
-    # num of values above median
-    n_plus = sum([1 for x in test_series if x > m])
-    # num of values below median
-    n_minus = n - n_plus
-    # expected number of runs if random
-    exp_runs = 2 * n_plus * n_minus * 1.0 / n + 1
-    # actual number of runs
-    num_runs = len(run_lengths)
-    # standard deviation of expected num of runs if random
-    exp_run_std = np.sqrt((exp_runs - 1) * (exp_runs - 2) * 1.0 / (n - 1))
-    # number of standard deviations (of exected run length) that the actual run count differs from WW expected run count
-    z_diff_expected = (num_runs - exp_runs) * 1.0 / exp_run_std
-
-    data = {'Runs': [num_runs],
-            'Expected Runs': [exp_runs],
-            'Expected Run StDev': [exp_run_std],
-            'Z': [z_diff_expected]
-            }
-
-    return pd.DataFrame.from_dict(data)
 
 
 def analysis_2(df, zs='Z_s', ws='W_s', cov='Z_s_W_s'):
@@ -529,6 +531,13 @@ def clean_in_data(tables, reach_breaks=None):
 
     for table in tables:
 
+        flow_name = os.path.basename(table)
+        try:
+            flow_name = os.path.basename(table).split('_')[1]
+            logging.info('Using %s as flow name for %s'%(flow_name,table))
+        except:
+            pass
+
         # ensures each table has columns named dist_down, Z, and W for distance downstream, detrended elevation, and channel width
         clean_in_table(table)
         # creates columns for standardized Z_s and W_s
@@ -550,15 +559,13 @@ def clean_in_data(tables, reach_breaks=None):
                 table_dict['Reach %i' % i] = reach_df
                 i += 1
 
-            data[table] = table_dict
-
-
+            data[flow_name] = table_dict
 
         # if no reach breaks, just have one second level key: "All"
         else:
             df = pd.read_csv(table)
             table_dict = {'All': df}
-            data[table] = table_dict
+            data[flow_name] = table_dict
 
     return data
 
