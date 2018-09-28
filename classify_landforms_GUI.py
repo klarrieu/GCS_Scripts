@@ -3,10 +3,8 @@ from file_functions import *
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-'''
 import arcpy
 arcpy.env.overwriteOutput = True
-'''
 from Tkinter import *
 import logging
 init_logger(__file__)
