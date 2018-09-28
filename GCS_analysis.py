@@ -310,6 +310,7 @@ def landform_following(data):
 
     return output
 
+
 def landform_nesting(data):
     '''Identifies abundance of each hierarchically nested landform'''
     flow_names = sorted(data.keys())
@@ -335,7 +336,8 @@ def landform_nesting(data):
         unique_nest_counts[i] += 1
 
     nest_abundances = list(zip(unique_nests, unique_nest_counts))
-    nest_abundances.sort(key=lambda x: x[1])
+    nest_abundances.sort(key=lambda x: x[1], reverse=True)
+    print(nest_abundances)
 
     for i, nest in enumerate(nest_abundances):
         n = len(nested_landforms)
@@ -452,6 +454,10 @@ def complete_analysis(tables, reach_breaks=None):
     follows = landform_following(data)
     logging.info('OK')
 
+    logging.info('Determining nested landform abundance...')
+    nests = landform_nesting(data)
+    logging.info('OK')
+
     logging.info('Writing outputs to files...')
 
     # save tables to excel files/sheets
@@ -464,7 +470,7 @@ def complete_analysis(tables, reach_breaks=None):
                 logging.info('%s title too long for excel sheet name. Shortening to 31 characters.' % df.title)
             df.to_excel(writer, sheet_name=df.title[:31])
 
-    for df in [corrs, means, percents, zs_percntz, ws_percntz]:
+    for df in [corrs, means, percents, zs_percntz, ws_percntz, nests]:
         if len(df.title) > 31:
             logging.info('%s title too long for excel sheet name. Shortening to 31 characters.' % df.title)
         df.to_excel(writer, sheet_name=df.title[:31])
