@@ -454,9 +454,13 @@ def complete_analysis(tables, reach_breaks=None):
     for df_list in [czw_corrs, ww_test_z, ww_test_w, landform_percents, follows]:
         for df in df_list:
             # 31 character limit for excel sheet name
+            if len(df.title) > 31:
+                logging.info('%s title too long for excel sheet name. Shortening to 31 characters.' % df.title)
             df.to_excel(writer, sheet_name=df.title[:31])
 
     for df in [corrs, means, percents, zs_percntz, ws_percntz]:
+        if len(df.title) > 31:
+            logging.info('%s title too long for excel sheet name. Shortening to 31 characters.' % df.title)
         df.to_excel(writer, sheet_name=df.title[:31])
 
     writer.save()
