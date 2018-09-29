@@ -2,6 +2,8 @@ from file_functions import *
 from classify_landforms_GUI import *
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from Tkinter import *
 import logging
 
@@ -337,12 +339,94 @@ def landform_nesting(data):
 
     nest_abundances = list(zip(unique_nests, unique_nest_counts))
     nest_abundances.sort(key=lambda x: x[1], reverse=True)
-    print(nest_abundances)
 
     for i, nest in enumerate(nest_abundances):
         n = len(nested_landforms)
         p = round(nest[1]*100.0/n, 2)
         output.loc[i] = [code_dict[nst] for nst in nest[0]] + [nest[1], p]
+
+    return output
+
+
+def GCS_plots(data):
+    '''Returns list of plots for Z_s, W_s at each flow, and C(Z_s,W_s) at each flow'''
+
+    flow_names = sorted(data.keys())
+
+    output = []
+
+    # Z_s plot for each flow
+
+    for flow in flow_names:
+        dist = data[flow]['All']['dist_down'].tolist()
+        zs = data[flow]['All']['Z_s'].tolist()
+
+        fig = plt.figure()
+        plt.title(r'$Z_s$' + ' %s' % flow)
+        plt.xlabel('Distance downstream (m)')
+        plt.ylabel('$Z_s$')
+        plt.grid()
+        plt.plot(dist, zs)
+        fig.savefig('Zs %s.png' % flow)
+        output.append(fig)
+        plt.close(fig)
+
+    # W_s plot for each flow
+
+    for flow in flow_names:
+        dist = data[flow]['All']['dist_down'].tolist()
+        zs = data[flow]['All']['W_s'].tolist()
+
+        fig = plt.figure()
+        plt.title(r'$W_s$' + ' %s' % flow)
+        plt.xlabel('Distance downstream (m)')
+        plt.ylabel(r'$W_s$')
+        plt.grid()
+        plt.plot(dist, zs)
+        fig.savefig('Ws %s.png' % flow)
+        output.append(fig)
+        plt.close(fig)
+
+    # GCS at each flow, same plot (lines colored by flow)
+
+    fig = plt.figure()
+    plt.title(r'$C(Z_s, W_s)$')
+    plt.xlabel('Distance downstream (m)')
+    plt.ylabel(r'$Z_s \cdot W_s$')
+    plt.grid()
+
+    for flow in flow_names:
+        dist = data[flow]['All']['dist_down'].tolist()
+        czw = data[flow]['All']['Z_s_W_s'].tolist()
+        plt.plot(dist, czw, label=flow)
+
+    plt.legend()
+    fig.savefig('Czw.png')
+    output.append(fig)
+    plt.close(fig)
+
+    # GCS plot for each flow (points colored by landform type)
+
+    color_code = {-2: 'black', -1: 'blue', 0: 'grey', 1: 'orange', 2: 'red'}
+    code_dict = {-2: 'O', -1: 'CP', 0: 'NC', 1: 'WB', 2: 'NZ'}
+
+    for flow in flow_names:
+        dist = data[flow]['All']['dist_down'].tolist()
+        czw = data[flow]['All']['Z_s_W_s'].tolist()
+        code = data[flow]['All']['code'].tolist()
+
+        fig = plt.figure()
+        plt.title(r'$C(Z_s, W_s)$' + ' %s' % flow)
+        plt.xlabel('Distance downstream (m)')
+        plt.ylabel(r'$Z_s \cdot W_s$')
+        plt.grid()
+        plt.scatter(dist, czw, c=[color_code[x] for x in code], s=4, edgecolors='none')
+        legend_elements = [Line2D([0], [0], marker='o', color='w', label=mu, markerfacecolor=color, markeredgecolor='none', markersize=10)
+                           for color, mu in [[color_code[x], code_dict[x]] for x in code_dict.keys()]]
+        plt.legend(handles=legend_elements, ncol=5)
+        fig.savefig('Czw landforms %s.png' % flow)
+        output.append(fig)
+        plt.close(fig)
 
     return output
 
@@ -478,6 +562,8 @@ def complete_analysis(tables, reach_breaks=None):
     writer.save()
 
     # save images of plots
+
+    plots = GCS_plots(data)
 
     logging.info('OK')
 
