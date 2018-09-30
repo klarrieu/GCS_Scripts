@@ -8,9 +8,6 @@ from file_functions import *
 import pandas as pd
 import logging
 
-init_logger(__file__)
-
-
 def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buffer_size='', rm_up_length=0, rm_down_length=0):
     '''Creates wetted polygon XSs for each wetted polygon, then extracts W,Z and other attributes
 
@@ -153,6 +150,9 @@ if __name__ == '__main__':
     buffer_size = 2.5
     tables = extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buffer_size)
     '''
+
+    # initialize logger
+    init_logger(__file__)
 
     # make the GUI window
     root = Tk()
