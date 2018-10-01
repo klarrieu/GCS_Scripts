@@ -124,11 +124,11 @@ class DF(pd.DataFrame):
 def flt_to_poly(flt):
     '''Converts .flt raster to a single polygon covering area that is not null'''
     ras = arcpy.Raster(flt)
-    #make integer raster
+    # make integer raster
     int_raster = arcpy.sa.Con(arcpy.sa.IsNull(ras) == False, 1)
-    #convert to polygon
+    # convert to polygon
     poly = arcpy.RasterToPolygon_conversion(int_raster,
-                                            flt.replace('.flt','.shp'),
+                                            flt.replace('.flt', '.shp'),
                                             'NO_SIMPLIFY'
                                             )
 
