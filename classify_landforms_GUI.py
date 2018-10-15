@@ -101,11 +101,16 @@ def landform_polygons(table, wetted_XS_polygon):
         join_on_val = row.getValue(join_on)
         for col in df.columns.tolist():
             if col != join_on:
-                new_val = float(df.loc[ df[join_on] == join_on_val ][col].tolist()[0])
-                if col == 'OID':
-                    row.setValue('OID_',new_val)
-                else:
-                    row.setValue(col, new_val)
+                try:
+                    new_val = float(df.loc[ df[join_on] == join_on_val ][col].tolist()[0])
+                    if col == 'OID':
+                        row.setValue('OID_',new_val)
+                    else:
+                        row.setValue(col, new_val)
+                # index will be out of range if we removed upstream and downstream sections
+                except IndexError:
+                    pass
+
         rows.updateRow(row)
     
     logging.info('OK')

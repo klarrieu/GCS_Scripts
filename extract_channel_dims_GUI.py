@@ -113,12 +113,12 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
             # sort the table so data is longitudinally sequential
             if 'dist_down' in joined_df.columns.tolist():
                 joined_df = joined_df.sort_values(by=['dist_down'])
-                joined_df = joined_df.loc[(joined_df['dist_down'] >= rm_up_length) and (
-                            joined_df['dist_down'] <= joined_df['dist_down'][-1] - rm_down_length)]
+                joined_df = joined_df[(joined_df['dist_down'] >= rm_up_length)]
+                joined_df = joined_df[joined_df['dist_down'] <= (joined_df['dist_down'].tolist()[-1] - rm_down_length)]
             elif 'ET_STATION' in joined_df.columns.tolist():
                 joined_df = joined_df.sort_values(by=['ET_STATION'])
-                joined_df = joined_df.loc[(joined_df['ET_STATION'] >= rm_up_length) and (
-                            joined_df['ET_STATION'] <= joined_df['ET_STATION'][-1] - rm_down_length)]
+                joined_df = joined_df[(joined_df['ET_STATION'] >= rm_up_length)]
+                joined_df = joined_df[joined_df['ET_STATION'] <= (joined_df['ET_STATION'].tolist()[-1] - rm_down_length)]
             else:
                 logging.warning(
                     'No station lines attribute field named dist_down or ET_STATION: sorting by original FID for station lines. Ensure output data is longitudinally sequential.')

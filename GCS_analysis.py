@@ -437,7 +437,7 @@ def clean_in_data(tables, reach_breaks=None):
     
     Args:
         tables: a list of filenames, each a .csv table for a particular discharge with the same number of rows, containing columns for dist_down, Z (detrended), W
-        reach_breaks: a list of indices where new reaches begin. If reach_breaks == None, it will just look at the entire dataset
+        reach_breaks: a list of dist_down values where new reaches begin. If reach_breaks == None, it will just look at the entire dataset
     
     Returns:
         a dict of dicts containing dataframes:
@@ -457,7 +457,7 @@ def clean_in_data(tables, reach_breaks=None):
 
         flow_name = os.path.basename(table)
         try:
-            flow_name = os.path.basename(table).split('_')[1]
+            flow_name = os.path.basename(table).split('_')[0]
             logging.info('Using %s as flow name for %s'%(flow_name,table))
         except:
             pass
@@ -476,7 +476,9 @@ def clean_in_data(tables, reach_breaks=None):
             df = pd.read_csv(table)
             table_dict = {'All': df}
 
-            reach_indices = split_list(df.index.tolist(), reach_breaks)
+            # dataframe indices corresponding to reach break distance values
+            reach_break_indices = [df.index[df['dist_down'] == reach_break].tolist()[0] for reach_break in reach_breaks]
+            reach_indices = split_list(df.index.tolist(), reach_break_indices)
             i = 1  # reach number
             for reach in reach_indices:
                 reach_df = df.loc[reach]
