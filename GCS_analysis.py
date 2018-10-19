@@ -428,6 +428,21 @@ def GCS_plots(data):
         output.append(fig)
         plt.close(fig)
 
+    # Fourier transform of GCS at each flow
+    fig = plt.figure()
+    plt.title(r'$F(Czw)$')
+    plt.xlabel('Frequency' + r'$(m^{-1})$')
+    plt.grid()
+    for flow in flow_names:
+        x = data[flow]['All']['dist_down'].tolist()
+        gcs = data[flow]['All']['Z_s_W_s'].tolist()
+        xf, yf = ft(x, gcs)
+        plt.plot(xf, yf, label=flow)
+    plt.legend()
+    fig.savefig('GCSFourier.png')
+    output.append(fig)
+    plt.close(fig)
+
     return output
 
 

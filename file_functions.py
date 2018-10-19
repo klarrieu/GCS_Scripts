@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 from Tkinter import *
 import tkFileDialog
 import subprocess
@@ -129,6 +130,14 @@ class DF(pd.DataFrame):
             print(self.title)
         print(self)
 
+def ft(x, y):
+    '''Returns the fourier transform of the x,y data'''
+    n = len(x)
+    spacing = abs(x[1]-x[0])
+    xf = np.linspace(0, 1/(2.0*spacing), n//2)
+    yf = np.fft.fft(y)
+    yf = list(map(lambda k: 2.0/n*np.abs(k), yf))[:n//2]
+    return xf, yf
 
 def flt_to_poly(flt):
     """Converts .flt raster to a single polygon covering area that is not null"""
