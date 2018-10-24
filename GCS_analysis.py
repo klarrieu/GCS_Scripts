@@ -429,6 +429,7 @@ def GCS_plots(data):
         plt.close(fig)
 
     # Fourier transform of GCS at each flow
+
     fig = plt.figure()
     plt.title(r'$F(Czw)$')
     plt.xlabel('Frequency' + r'$(m^{-1})$')
@@ -442,6 +443,25 @@ def GCS_plots(data):
     fig.savefig('GCSFourier.png')
     output.append(fig)
     plt.close(fig)
+
+    # GCS autocorrelation at each flow
+
+    fig = plt.figure()
+    plt.title('Autocorrelation')
+    plt.xlabel('Lag')
+    plt.grid()
+    for flow in flow_names:
+        # x = data[flow]['All']['dist_down'].tolist()
+        gcs = data[flow]['All']['Z_s_W_s'].tolist()
+        plt.acorr(gcs, usevlines=True, normed=True, label=flow)
+    plt.legend()
+    plt.savefig('GCSacorr.png')
+    output.append(fig)
+    plt.close()
+
+    # GCS cross-correlation between flows
+    # 2D Fourier transform for Ws and Zs at each flow
+    # power spectral density
 
     return output
 
@@ -577,11 +597,12 @@ def complete_analysis(tables, reach_breaks=None):
         df.to_excel(writer, sheet_name=df.title[:31])
 
     writer.save()
+    logging.info('OK')
 
     # save images of plots
 
+    logging.info('Making plots...')
     plots = GCS_plots(data)
-
     logging.info('OK')
 
     return data
