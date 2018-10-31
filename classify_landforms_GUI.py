@@ -61,11 +61,11 @@ def landforms(table, zs_field = 'Z_s', ws_field = 'W_s', na = -9999):
     check_use(table) 
     df = pd.read_csv(table)
 
-    df['normal'] = [zs*ws if (abs(zs) <= 0.5 or abs(ws) <= 0.5) else na for zs, ws in zip(df[zs_field], df[ws_field])]
-    df['wide_bar'] = [zs*ws if (zs > 0.5 and ws > 0.5) else na for zs, ws in zip(df[zs_field], df[ws_field])]
-    df['const_pool'] = [zs*ws if (zs < -0.5 and ws < -0.5) else na for zs, ws in zip(df[zs_field], df[ws_field])]
-    df['nozzle'] = [zs*ws if (zs > 0.5 and ws < -0.5) else na for zs, ws in zip(df[zs_field], df[ws_field])]
-    df['oversized'] = [zs*ws if (zs < -0.5 and ws > 0.5) else na for zs, ws in zip(df[zs_field], df[ws_field])]
+    df['normal'] = [zs*ws if (abs(zs*ws) <= 0.5) else na for zs, ws in zip(df[zs_field], df[ws_field])]
+    df['wide_bar'] = [zs*ws if (abs(zs*ws) > 0.5 and zs > 0 and ws > 0) else na for zs, ws in zip(df[zs_field], df[ws_field])]
+    df['const_pool'] = [zs*ws if (abs(zs*ws) > 0.5 and zs < 0 and ws < 0) else na for zs, ws in zip(df[zs_field], df[ws_field])]
+    df['nozzle'] = [zs*ws if (abs(zs*ws) > 0.5 and zs > 0 and ws < 0) else na for zs, ws in zip(df[zs_field], df[ws_field])]
+    df['oversized'] = [zs*ws if (abs(zs*ws) > 0.5 and zs < 0 and ws > 0) else na for zs, ws in zip(df[zs_field], df[ws_field])]
 
     df['code'] = [-2 if df['oversized'][i] != na
                   else -1 if df['const_pool'][i] != na

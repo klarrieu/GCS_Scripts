@@ -271,11 +271,14 @@ def landform_occupation(data):
     return output
 
 
-def landform_following(data):
+def landform_following(data, nc=True):
     '''Computes percentage of times each landform type is followed by each other landform type type'''
     flow_names = sorted(data.keys())
     # code number and corresponding MU
-    code_dict = {-2: 'O', -1: 'CP', 0: 'NC', 1: 'WB', 2: 'NZ'}
+    if nc:
+        code_dict = {-2: 'O', -1: 'CP', 0: 'NC', 1: 'WB', 2: 'NZ'}
+    else:
+        code_dict = {-2: 'O', -1: 'CP', 1: 'WB', 2: 'NZ'}
 
     output = []
 
@@ -283,17 +286,28 @@ def landform_following(data):
     # one table per flow, starting unit as row, following unit as col, percent of times starting unit is followed by following unit as values
     for flow in flow_names:
 
-        flow_df = DF(index=code_dict.values(), columns=code_dict.values(),
-                     title='%s %% times unit follows starting unit'%flow)
-        flow_df.index.name = 'starting unit'
-
         code_series = data[flow]['All']['code'].tolist()
 
         # code pairs for each transition
         transitions = []
-        for c1, c2 in zip(code_series, code_series[1:]):
-            if c1 != c2:
-                transitions.append([c1, c2])
+        if nc:
+            flow_df = DF(index=code_dict.values(), columns=code_dict.values(),
+                         title='%s %% times unit follows starting unit' % flow)
+            flow_df.index.name = 'starting unit'
+
+            for c1, c2 in zip(code_series, code_series[1:]):
+                if c1 != c2:
+                    transitions.append([c1, c2])
+
+        else:
+            # exclude normal channel condition
+            flow_df = DF(index=code_dict.values(), columns=code_dict.values(),
+                         title='%s NoNC %% times unit follows starting unit' % flow)
+            flow_df.index.name = 'starting unit'
+            no_nc = filter(lambda c: c != 0, code_series)
+            for c1, c2 in zip(no_nc, no_nc[1:]):
+                if c1 != c2:
+                    transitions.append([c1, c2])
 
         for start_code in code_dict.keys():
             # n = total number of transitions for the start_code
@@ -431,21 +445,21 @@ def GCS_plots(data):
     # Fourier transform of GCS at each flow
 
     fig = plt.figure()
-    plt.title(r'$F(Czw)$')
+    plt.title(r'$\hat{f}(Czw)$')
     plt.xlabel('Frequency' + r'$(m^{-1})$')
     plt.grid()
     for flow in flow_names:
         x = data[flow]['All']['dist_down'].tolist()
         gcs = data[flow]['All']['Z_s_W_s'].tolist()
         xf, yf = ft(x, gcs)
-        plt.plot(xf, yf, label=flow)
+        plt.semilogx(xf, yf, label=flow)
     plt.legend()
     fig.savefig('GCSFourier.png')
     output.append(fig)
     plt.close(fig)
 
     # GCS autocorrelation at each flow
-
+    '''
     fig = plt.figure()
     plt.title('Autocorrelation')
     plt.xlabel('Lag')
@@ -458,7 +472,7 @@ def GCS_plots(data):
     plt.savefig('GCSacorr.png')
     output.append(fig)
     plt.close()
-
+    '''
     # GCS cross-correlation between flows
     # 2D Fourier transform for Ws and Zs at each flow
     # power spectral density
@@ -573,6 +587,7 @@ def complete_analysis(tables, reach_breaks=None):
 
     logging.info('Determining landform sequencing...')
     follows = landform_following(data)
+    follows_no_nc = landform_following(data, nc=False)
     logging.info('OK')
 
     logging.info('Determining nested landform abundance...')
@@ -584,7 +599,7 @@ def complete_analysis(tables, reach_breaks=None):
     # save tables to excel files/sheets
     writer = pd.ExcelWriter('GCS_output_data.xlsx', engine='xlsxwriter')
 
-    for df_list in [czw_corrs, ww_test_z, ww_test_w, landform_percents, follows]:
+    for df_list in [czw_corrs, ww_test_z, ww_test_w, landform_percents, follows, follows_no_nc]:
         for df in df_list:
             # 31 character limit for excel sheet name
             if len(df.title) > 31:
