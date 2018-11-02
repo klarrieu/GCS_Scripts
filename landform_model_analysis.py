@@ -30,6 +30,9 @@ def landform_stratified_velocities(station_lines, detrended_DEM, vel_ras_list, b
         A plot of landform stratified average velocity vs discharge
     '''
 
+    code_dict = {-2: 'O', -1: 'CP', 0: 'NC', 1: 'WB', 2: 'NZ'}
+    color_code = {-2: 'black', -1: 'blue', 0: 'grey', 1: 'orange', 2: 'red'}
+
     tables = extract_channel_data(station_lines=station_lines, detrended_DEM=detrended_DEM, wetted_polygons_list=vel_ras_list,
                          buffer_size=buffer_size, rm_up_length=rm_up_length, rm_down_length=rm_down_length)
 
@@ -40,18 +43,41 @@ def landform_stratified_velocities(station_lines, detrended_DEM, vel_ras_list, b
 
     mu_XS_list = [vel_ras.replace('.flt', '_XS.shp') for vel_ras in vel_ras_list]
 
+
+    logging.info('Getting mean velocities by landform and discharge...')
+    series = []  # fill with [discharge, mean_vel, code] lists
     for mu_poly, vel_ras in zip(mu_XS_list, vel_ras_list):
-        arcpy.sa.ZonalStatisticsAsTable(mu_poly, 'code', vel_ras, os.path.join(os.path.dirname(vel_ras), 'v_avg_%s' % os.path.basename(vel_ras).replace('.flt','')), statistics_type='MEAN')
 
+        # get mean velocity series
+        mean_vel = arcpy.sa.ZonalStatisticsAsTable(mu_poly, 'code', vel_ras, os.path.join(os.path.dirname(vel_ras), 'v_avg_%s.dbf' % os.path.basename(vel_ras).replace('.flt','')), statistics_type='MEAN')
+        mean_vel = arcpy.TableToExcel_conversion(mean_vel, str(mean_vel).replace('.dbf', '.xls'))
+        df = pd.read_excel(str(mean_vel))
+        q = os.path.basename(vel_ras).replace('cms.flt','').replace('pt','.')
+        vals = [[float(q), float(v), int(code)]
+                for v, code in zip(df['MEAN'].tolist(), df['code'].tolist()) if code != -9999]
+        series.extend(vals)
 
-    # read in zonal stats tables
+        # get 95th percentile velocity series
+        # use con to get set of velocity pixels
+
+    logging.info('OK')
+
+    series = sorted(series)
 
     # make plot with line for each code, points are discharge and corresponding velocity
-    '''
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-    ax1.plot()
+
+    for code in [-2, -1, 0, 1, 2]:
+        qs, vs = map(list, zip(*[x[:2] for x in series if x[2] == code]))
+        ax1.semilogx(qs, vs, label=code_dict[code], color=color_code[code], marker='o', markersize=5)
+
+    ax1.set(ylabel=r'Mean Velocity $(m/s)$')
+    ax1.grid()
+    ax2.set(xlabel=r'Discharge $(cms)$', ylabel=r'95th Percentile Velocity $(m/s)$')
+    ax2.grid()
+    ax1.legend()
     plt.show()
-    '''
+
 
 if __name__ == '__main__':
 
@@ -59,11 +85,12 @@ if __name__ == '__main__':
     init_logger(__file__)
 
     #get velocity raster from final timestep for each tuflow run
-
+    '''
     vel_ras_list = get_all_files('G:\\Ken_RB\\c01\\Tuflow\\results\\003\\', suffix='V_002_00.flt')+get_all_files('G:\\Ken_RB\\c01\\Tuflow\\results\\003\\', suffix='V_002_00.hdr')
     # copy rasters to folder for analysis
     for vel_ras in vel_ras_list:
         shutil.copyfile(vel_ras, 'G:\\Ken_RB\\c01\\mu_vel\\' + os.path.basename(vel_ras).replace('.', 'pt', 1).replace('RB_', '').replace('_003_V_002_00', ''))
+    '''
     vel_ras_list = get_all_files('G:\\Ken_RB\\c01\\mu_vel\\', suffix='.flt')
 
 
