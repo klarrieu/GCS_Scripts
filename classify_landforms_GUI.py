@@ -76,7 +76,7 @@ def landforms(table, zs_field = 'Z_s', ws_field = 'W_s', na = -9999):
                   for i in range(len(df))
                   ]
 
-    df.to_csv(table, index = False)
+    df.to_csv(table, index=False)
     return df
 
 def landform_polygons(table, wetted_XS_polygon):
@@ -91,10 +91,16 @@ def landform_polygons(table, wetted_XS_polygon):
     for col in df.columns.tolist():
         current_fields = [field.name for field in arcpy.ListFields(wetted_XS_polygon)]
         if (col != join_on) and (col not in current_fields) and (col+'_' not in current_fields):
-            arcpy.AddField_management(wetted_XS_polygon,
-                                      col,
-                                      'FLOAT'
-                                      )
+            if col == 'code':  # make 'code' an integer field so it can be referenced by zonal stats
+                arcpy.AddField_management(wetted_XS_polygon,
+                                          col,
+                                          'SHORT'
+                                          )
+            else:
+                arcpy.AddField_management(wetted_XS_polygon,
+                                          col,
+                                          'FLOAT'
+                                          )
     #fill each new column with values using join_on column name
     rows = arcpy.UpdateCursor(wetted_XS_polygon)
     for row in rows:
@@ -104,11 +110,13 @@ def landform_polygons(table, wetted_XS_polygon):
                 try:
                     new_val = float(df.loc[ df[join_on] == join_on_val ][col].tolist()[0])
                     if col == 'OID':
-                        row.setValue('OID_',new_val)
+                        row.setValue('OID_', new_val)
                     else:
                         row.setValue(col, new_val)
                 # index will be out of range if we removed upstream and downstream sections
                 except IndexError:
+                    # set 'code' to -9999 instead of 0 for removed sections so it is not mistaken for normal channel
+                    row.setValue('code', -9999)
                     pass
 
         rows.updateRow(row)
