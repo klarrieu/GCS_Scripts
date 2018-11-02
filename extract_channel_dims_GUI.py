@@ -46,6 +46,7 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
 
         # set XS buffer size to 1/2 spacing
         buffer_size = spacing * 1.0 / 2
+        logging.info('Using buffer size of %f' % buffer_size)
 
     else:
         buffer_size = float(buffer_size)
@@ -62,6 +63,7 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
 
             # if given an .flt raster (e.g. from Tuflow output), convert it to a polygon
             if wetted_polygon.endswith('.flt'):
+                logging.info('Converting flt to polygon: %s' % wetted_polygon)
                 wetted_polygon = flt_to_poly(wetted_polygon)
 
             # clip rectangles to extent of each wetted polygon

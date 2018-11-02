@@ -94,6 +94,24 @@ def check_use(filepath):
     return
 
 
+def get_all_files(dir, prefix='',suffix='', nesting=True):
+    '''
+    Returns list of all files in directory
+
+    Args:
+        dir (str): the directory of interest
+        prefix (str): if provided, files returned must start with this
+        suffix (str): if provided, files returned must end with this
+        nesting (bool): if True, looks in all subdirectories of dir. If false, only looks at top-level.
+    '''
+    l = []
+    for path, subdirs, files in os.walk(dir):
+        for name in files:
+            if name.startswith(prefix) and name.endswith(suffix) and (nesting or (path == dir)):
+                l.append(os.path.join(path,name))
+    return l
+
+
 def split_list(l, break_pts):
     """returns list l split up into sublists at break point indices"""
     l_0 = len(l)
