@@ -2,6 +2,7 @@ import arcpy
 from arcpy import env
 import os
 from file_functions import *
+import textwrap
 import pandas as pd
 import logging
 
@@ -75,16 +76,16 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
 
             # add reach number attribute (all 1 if reach_breaks='') (short integer type)
             arcpy.AddField_management(xs, 'Reach', 'SHORT')
-            codeblock = '''
+            codeblock = textwrap.dedent('''
             def get_reach(dist_down):
                 reach_num = 1
-                for break in %s:
-                    if dist_down < reach_num:
+                for brk in %s:
+                    if dist_down < brk:
                         return reach_num
                     else:
                         reach_num+=1
                 return reach_num
-            ''' % reach_breaks
+            ''' % reach_breaks)
             arcpy.CalculateField_management(xs, 'Reach',
                                             'get_reach(!dist_down!)',
                                             'PYTHON',
