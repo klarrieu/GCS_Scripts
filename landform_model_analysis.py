@@ -66,6 +66,7 @@ def landform_stratified_velocities(station_lines, detrended_DEM, vel_ras_list, b
 
     # make plot with line for each code, points are discharge and corresponding velocity
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    fig.suptitle('Landform Stratified Velocity')
 
     for code in [-2, -1, 0, 1, 2]:
         qs, vs = map(list, zip(*[x[:2] for x in series if x[2] == code]))

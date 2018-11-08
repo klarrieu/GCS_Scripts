@@ -1,14 +1,15 @@
 import arcpy
 from arcpy import env
-
-arcpy.env.overwriteOutput = True
-arcpy.CheckOutExtension('Spatial')
 import os
 from file_functions import *
 import pandas as pd
 import logging
 
-def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buffer_size='', rm_up_length=0, rm_down_length=0):
+arcpy.env.overwriteOutput = True
+arcpy.CheckOutExtension('Spatial')
+
+
+def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buffer_size='', rm_up_length=0, rm_down_length=0, reach_breaks=''):
     '''Creates wetted polygon XSs for each wetted polygon, then extracts W,Z and other attributes
 
     Args:
@@ -19,7 +20,7 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
     
     Returns:
         polygon_XS: 
-        table for each wetted polygon containing width, detrended bed elevation
+        table for each wetted polygon containing width, detrended bed elevation, *reach number
     '''
 
     check_use([station_lines, detrended_DEM] + wetted_polygons_list)
@@ -71,6 +72,23 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
                                      wetted_polygon,
                                      str(wetted_polygon).replace('.shp', '_XS.shp')
                                      )
+
+            # add reach number attribute (all 1 if reach_breaks='') (short integer type)
+            arcpy.AddField_management(xs, 'Reach', 'SHORT')
+            codeblock = '''
+            def get_reach(dist_down):
+                reach_num = 1
+                for break in %s:
+                    if dist_down < reach_num:
+                        return reach_num
+                    else:
+                        reach_num+=1
+                return reach_num
+            ''' % reach_breaks
+            arcpy.CalculateField_management(xs, 'Reach',
+                                            'get_reach(!dist_down!)',
+                                            'PYTHON',
+                                            codeblock)
 
             # create area and width attributes for each set of xs's
             arcpy.AddGeometryAttributes_management(xs,
@@ -204,23 +222,29 @@ if __name__ == '__main__':
     E5.insert(END, '0')
     E5.grid(row=9, column=2)
 
-    L6 = Label(root, text='Remove Downstream Length')
+    L6 = Label(root, text='Remove Downstream Length:')
     L6.grid(sticky=E, row=10, column=1)
     E6 = Entry(root, bd=5)
     E6.insert(END, '0')
     E6.grid(row=10, column=2)
 
-    b = Button(root, text='   Run    ', command=lambda: extract_channel_data(station_lines=E1.get(),
-                                                                             detrended_DEM=E2.get(),
-                                                                             wetted_polygons_list=list(
-                                                                                 root.tk.splitlist(E3.get())),
-                                                                             buffer_size=E4.get(),
-                                                                             rm_up_length = float(E5.get()),
-                                                                             rm_down_length = float(E6.get())
-                                                                             )
+    L7 = Label(root, text='Reach Breaks:')
+    L7.grid(sticky=E, row=11, column=1)
+    E7 = Entry(root, bd=5)
+    E7.grid(row=11, column=2)
+
+    b = Button(root, text='   Run    ',
+               command=lambda: extract_channel_data(station_lines=E1.get(),
+                                                    detrended_DEM=E2.get(),
+                                                    wetted_polygons_list=list(root.tk.splitlist(E3.get())),
+                                                    buffer_size=E4.get(),
+                                                    rm_up_length=float(E5.get()),
+                                                    rm_down_length=float(E6.get()),
+                                                    reach_breaks=map(int, E7.get().split(',')) if E7.get() != '' else ''
+                                                    )
                )
-    b.grid(sticky=W, row=11, column=2)
-    root.grid_rowconfigure(11, minsize=80)
+    b.grid(sticky=W, row=12, column=2)
+    root.grid_rowconfigure(12, minsize=80)
 
     root.mainloop()
 
