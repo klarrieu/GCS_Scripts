@@ -15,11 +15,9 @@ def clean_in_table(table, w_field = 'Width', z_field = 'MEAN', dist_field = 'ET_
     df = pd.read_csv(table)
     
     for old_name, replacement_name in [(w_field, 'W'), (z_field, 'Z'), (dist_field, 'dist_down')]:
-        if replacement_name in df.columns.tolist():
-            logging.info('%s is already a field in %s, leaving column as is.'%(replacement_name, table))
-        else:
+        if replacement_name not in df.columns.tolist():
             if old_name in df.columns.tolist():
-                df.rename(columns = {old_name: replacement_name})
+                df.rename(columns={old_name: replacement_name})
                 logging.info('Renamed %s to %s in %s'%(old_name, replacement_name, table))
             else:
                 logging.exception('Cannot find column named %s or %s in %s'%(old_name, replacement_name, table))
@@ -177,9 +175,9 @@ def GCS_plot(table, units = 'm'):
     plt.plot(x, zs_ws)
 
     plt.show()
-    return
 
-def main_classify_landforms(tables, w_field, z_field, dist_field, make_plots = True):
+
+def main_classify_landforms(tables, w_field, z_field, dist_field, make_plots = False):
     '''Classifies river segments as normal, wide bar, constricted pool, oversized, or nozzle
 
     Args:

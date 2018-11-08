@@ -536,11 +536,26 @@ def clean_in_data(tables, reach_breaks=None):
 
             data[flow_name] = table_dict
 
-        # if no reach breaks, just have one second level key: "All"
+        # if no reach breaks list provided, look for 'Reach' attribute
         else:
             df = pd.read_csv(table)
-            table_dict = {'All': df}
-            data[flow_name] = table_dict
+            try:
+                # try using 'Reach' attribute
+                reach_names = list(set(df['Reach'].tolist()))
+                reaches = [df[df['Reach'] == reach_name] for reach_name in reach_names]
+                reach_names = ['Reach '+str(reach) for reach in reach_names]
+                # if only one reach == df, use this one reach for table dict ('All' would be redundant)
+                if len(reaches) == 1 and reaches[0] == df:
+                    table_dict = dict(zip(reach_names, reaches))
+                else:
+                    table_dict = dict(zip(reach_names, reaches))
+                    table_dict['All'] = df
+                data[flow_name] = table_dict
+            except:
+                # if no reach breaks can be identified, just use the whole enchilada
+                logging.info('Couldn\'t identify reach breaks.')
+                table_dict = {'All': df}
+                data[flow_name] = table_dict
 
     return data
 
@@ -648,15 +663,9 @@ if __name__ == '__main__':
                 )
     b1.grid(sticky=W, row=0, column=3)
 
-    L2 = Label(root, text='Reach Breaks: ')
-    L2.grid(sticky=E, row=1, column=1)
-    E2 = Entry(root, bd=5)
-    E2.grid(row=1, column=2)
-
-    b = Button(root, text='    Run    ', command=lambda: complete_analysis(tables=list(root.tk.splitlist(E1.get())),
-                                                                           reach_breaks=map(int, E2.get().split(
-                                                                               ',')) if E2.get() != '' else None
-                                                                           )
+    b = Button(root, text='    Run    ',
+               command=lambda: complete_analysis(tables=list(root.tk.splitlist(E1.get())))
                )
     b.grid(sticky=W, row=2, column=2)
+
     root.mainloop()
