@@ -16,10 +16,18 @@ if GCS landform attributes in XS shapefile:
 -characteristic variables by landform?
 '''
 
-def agg_metrics(d_ras, v_ras, thalweg_shp, reach_breaks):
-    '''calculates slope, sinuosity, average depth, average width'''
+def agg_metrics(d_ras, v_ras, thalweg_shp):
+    '''
+    calculates slope, sinuosity, average depth, average width
 
-    # slice XS attribute table into
+    Args:
+        d_ras: depth raster
+        v_ras: velocity raster
+        thalweg_shp: thalweg shapefile
+    '''
+
+    # slice XS attribute table by reach
+    for
 
     # calculate mean depth
 

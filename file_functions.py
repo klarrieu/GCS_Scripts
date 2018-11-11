@@ -6,6 +6,7 @@ import tkFileDialog
 import subprocess
 import logging
 import arcpy
+from arcpy.sa import *
 arcpy.env.overwriteOutput = True
 arcpy.CheckOutExtension('Spatial')
 
