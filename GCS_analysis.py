@@ -450,11 +450,44 @@ def GCS_plots(data):
     plt.grid()
     for flow in flow_names:
         x = data[flow]['All']['dist_down'].tolist()
-        gcs = data[flow]['All']['Z_s_W_s'].tolist()
-        xf, yf = ft(x, gcs)
+        y = data[flow]['All']['Z_s_W_s'].tolist()
+        xf, yf = ft(x, y)
         plt.semilogx(xf, yf, label=flow)
     plt.legend()
     fig.savefig('GCSFourier.png')
+    output.append(fig)
+    plt.close(fig)
+
+    # Fourier transform of Ws at each flow
+
+    fig = plt.figure()
+    plt.title(r'$\hat{f}(Ws)$')
+    plt.xlabel('Frequency' + r'$(m^{-1})$')
+    plt.grid()
+    for flow in flow_names:
+        x = data[flow]['All']['dist_down'].tolist()
+        y = data[flow]['All']['W_s'].tolist()
+        xf, yf = ft(x, y)
+        plt.semilogx(xf, yf, label=flow)
+    plt.legend()
+    fig.savefig('WsFourier.png')
+    output.append(fig)
+    plt.close(fig)
+
+
+    # Fourier transform of Zs at each flow
+
+    fig = plt.figure()
+    plt.title(r'$\hat{f}(Zs)$')
+    plt.xlabel('Frequency' + r'$(m^{-1})$')
+    plt.grid()
+    for flow in flow_names:
+        x = data[flow]['All']['dist_down'].tolist()
+        y = data[flow]['All']['Z_s'].tolist()
+        xf, yf = ft(x, y)
+        plt.semilogx(xf, yf, label=flow)
+    plt.legend()
+    fig.savefig('ZsFourier.png')
     output.append(fig)
     plt.close(fig)
 

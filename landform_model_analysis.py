@@ -34,10 +34,10 @@ def landform_stratified_velocities(station_lines, detrended_DEM, vel_ras_list, b
     color_code = {-2: 'black', -1: 'blue', 0: 'grey', 1: 'orange', 2: 'red'}
 
     tables = extract_channel_data(station_lines=station_lines, detrended_DEM=detrended_DEM, wetted_polygons_list=vel_ras_list,
-                         buffer_size=buffer_size, rm_up_length=rm_up_length, rm_down_length=rm_down_length)
+                                  buffer_size=buffer_size, rm_up_length=rm_up_length, rm_down_length=rm_down_length)
 
     # get output tables from extract_channel_data
-    # tables = [vel_ras.replace('.flt', '_XS_joined_table.csv') for vel_ras in vel_ras_list]
+    tables = [vel_ras.replace('.flt', '_XS_joined_table.csv') for vel_ras in vel_ras_list]
 
     main_classify_landforms(tables=tables, w_field='W', z_field='Z', dist_field='dist_down', make_plots=False)
 
@@ -52,7 +52,7 @@ def landform_stratified_velocities(station_lines, detrended_DEM, vel_ras_list, b
         mean_vel = arcpy.sa.ZonalStatisticsAsTable(mu_poly, 'code', vel_ras, os.path.join(os.path.dirname(vel_ras), 'v_avg_%s.dbf' % os.path.basename(vel_ras).replace('.flt','')), statistics_type='MEAN')
         mean_vel = arcpy.TableToExcel_conversion(mean_vel, str(mean_vel).replace('.dbf', '.xls'))
         df = pd.read_excel(str(mean_vel))
-        q = os.path.basename(vel_ras).replace('cms.flt','').replace('pt','.')
+        q = os.path.basename(vel_ras).replace('cms.flt','').replace('pt', '.')
         vals = [[float(q), float(v), int(code)]
                 for v, code in zip(df['MEAN'].tolist(), df['code'].tolist()) if code != -9999]
         series.extend(vals)
@@ -65,18 +65,20 @@ def landform_stratified_velocities(station_lines, detrended_DEM, vel_ras_list, b
     series = sorted(series)
 
     # make plot with line for each code, points are discharge and corresponding velocity
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    fig, ax = plt.subplots(1, 1, sharex=True)
     fig.suptitle('Landform Stratified Velocity')
 
     for code in [-2, -1, 0, 1, 2]:
         qs, vs = map(list, zip(*[x[:2] for x in series if x[2] == code]))
-        ax1.semilogx(qs, vs, label=code_dict[code], color=color_code[code], marker='o', markersize=5)
+        ax.semilogx(qs, vs, label=code_dict[code], color=color_code[code], marker='o', markersize=5)
 
-    ax1.set(ylabel=r'Mean Velocity $(m/s)$')
-    ax1.grid()
+    ax.set(ylabel=r'Mean Velocity $(m/s)$')
+    ax.grid()
+    '''
     ax2.set(xlabel=r'Discharge $(cms)$', ylabel=r'95th Percentile Velocity $(m/s)$')
     ax2.grid()
-    ax1.legend()
+    '''
+    ax.legend()
     plt.show()
 
 
