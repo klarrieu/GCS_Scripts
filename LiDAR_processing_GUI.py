@@ -117,28 +117,83 @@ def process_lidar(lastoolsdir,
                '06-Building'
                ]
 
-    outdirs = ['00_separated',
-               '00_declassified',
-               '01_tiled',
-               '02a_lasground_new_coarse',
-               '02b_lasground_new_fine',
-               '03a_lasheight_coarse',
-               '03b_lasheight_fine',
-               '04a_lasclassify_coarse',
-               '04b_lasclassify_fine',
-               '05a_lastile_rm_buffer_coarse',
-               '05b_lastile_rm_buffer_fine',
-               '06a_separated_coarse',
-               '06b_separated_fine',
-               '07a_ground_clipped_coarse',
-               '07b_ground_clipped_fine',
-               '08_ground_merged',
-               '09_ground_rm_duplicates',
-               '10_veg_new_merged',
-               '11_veg_new_clipped',
-               '12_veg_merged',
-               '13_veg_rm_duplicates'
-               ]
+    if (ground_poly != '') and (keep_orig_pts == True):
+        # run on coarse and fine settings, need to clip and remove duplicates after merging
+        outdirs = ['00_separated',
+                   '00_declassified',
+                   '01_tiled',
+                   '02a_lasground_new_coarse',
+                   '02b_lasground_new_fine',
+                   '03a_lasheight_coarse',
+                   '03b_lasheight_fine',
+                   '04a_lasclassify_coarse',
+                   '04b_lasclassify_fine',
+                   '05a_lastile_rm_buffer_coarse',
+                   '05b_lastile_rm_buffer_fine',
+                   '06a_separated_coarse',
+                   '06b_separated_fine',
+                   '07a_ground_clipped_coarse',
+                   '07b_ground_clipped_fine',
+                   '08_ground_merged',
+                   '09_ground_rm_duplicates',
+                   '10_veg_new_merged',
+                   '11_veg_new_clipped',
+                   '12_veg_merged',
+                   '13_veg_rm_duplicates'
+                   ]
+
+    elif (ground_poly == '') and (keep_orig_pts == True):
+        # only classify with coarse settings, no clipping, but need to remove duplicates
+        outdirs = ['00_separated',
+                   '00_declassified',
+                   '01_tiled',
+                   '02_lasground_new',
+                   '03_lasheight',
+                   '04_lasclassify',
+                   '05_lastile_rm_buffer',
+                   '06_separated',
+                   '08_ground_merged',
+                   '09_ground_rm_duplicates',
+                   '12_veg_merged',
+                   '13_veg_rm_duplicates'
+                   ]
+
+    elif (ground_poly == '') and (keep_orig_pts == False):
+        # only classify with coarse setting, no clipping or removing duplicates necessary
+        outdirs = ['00_separated',
+                   '00_declassified',
+                   '01_tiled',
+                   '02_lasground_new',
+                   '03_lasheight',
+                   '04_lasclassify',
+                   '05_lastile_rm_buffer',
+                   '06_separated'
+                   ]
+
+    elif (ground_poly != '') and (keep_orig_pts == False):
+        # run on coarse and fine settings, clip, but no removing duplicates needed
+        outdirs = ['00_separated',
+                   '00_declassified',
+                   '01_tiled',
+                   '02a_lasground_new_coarse',
+                   '02b_lasground_new_fine',
+                   '03a_lasheight_coarse',
+                   '03b_lasheight_fine',
+                   '04a_lasclassify_coarse',
+                   '04b_lasclassify_fine',
+                   '05a_lastile_rm_buffer_coarse',
+                   '05b_lastile_rm_buffer_fine',
+                   '06a_separated_coarse',
+                   '06b_separated_fine',
+                   '07a_ground_clipped_coarse',
+                   '07b_ground_clipped_fine',
+                   '08_ground_merged',
+                   '10_veg_new_merged',
+                   '11_veg_new_clipped',
+                   '12_veg_merged'
+                   ]
+
+
 
     # make new directories for output from each step in processing
     for outdir in outdirs:
@@ -151,10 +206,15 @@ def process_lidar(lastoolsdir,
         raise Exception(msg)
 
     # in each 'separated' folder, create subdirs for each class type
-    sepdirs = [lidardir + '00_separated',
-               lidardir + '06a_separated_coarse',
-               lidardir + '06b_separated_fine'
-               ]
+    if ground_poly != '':
+        sepdirs = [lidardir + '00_separated',
+                   lidardir + '06a_separated_coarse',
+                   lidardir + '06b_separated_fine'
+                   ]
+    else:
+        sepdirs = [lidardir + '00_separated',
+                   lidardir + '06_separated'
+                   ]
     for sepdir in sepdirs:
         for class_type in classes:
             class_dir = sepdir + '/' + class_type
@@ -276,7 +336,10 @@ def process_lidar(lastoolsdir,
 
     lof = lof_text(lastoolsdir, lidardir + '01_tiled/')
 
-    odir = lidardir + '02a_lasground_new_coarse/'
+    if ground_poly != '':
+        odir = lidardir + '02a_lasground_new_coarse/'
+    else:
+        odir = lidardir + '02_lasground_new'
 
     cmd(
         '%slasground_new.exe -lof %s -cores %i %s -step %s -bulge %s -spike %s -down_spike %s -offset %s -hyper_fine -odir %s -olas' % (
@@ -295,41 +358,47 @@ def process_lidar(lastoolsdir,
 
     logging.info('OK')
 
-    logging.info('Running ground classification on fine setting...')
+    if ground_poly != '':
+        logging.info('Running ground classification on fine setting...')
 
-    odir = lidardir + '02b_lasground_new_fine/'
+        odir = lidardir + '02b_lasground_new_fine/'
 
-    cmd(
-        '%slasground_new.exe -lof %s -cores %i %s -step %s -bulge %s -spike %s -down_spike %s -offset %s -hyper_fine -odir %s -olas' % (
-            lastoolsdir,
-            lof,
-            cores,
-            units_code,
-            fine_step,
-            fine_bulge,
-            fine_spike,
-            fine_down_spike,
-            fine_offset,
-            odir
+        cmd(
+            '%slasground_new.exe -lof %s -cores %i %s -step %s -bulge %s -spike %s -down_spike %s -offset %s -hyper_fine -odir %s -olas' % (
+                lastoolsdir,
+                lof,
+                cores,
+                units_code,
+                fine_step,
+                fine_bulge,
+                fine_spike,
+                fine_down_spike,
+                fine_offset,
+                odir
+            )
         )
-    )
 
-    logging.info('OK')
+        logging.info('OK')
 
     ##########################
     # run lasheight on each data set
 
     logging.info('Measuring height above ground for non-ground points...')
 
-    lof = lof_text(lastoolsdir, lidardir + '02a_lasground_new_coarse/')
-    odir = lidardir + '03a_lasheight_coarse/'
+    if ground_poly != '':
+        lof = lof_text(lastoolsdir, lidardir + '02a_lasground_new_coarse/')
+        odir = lidardir + '03a_lasheight_coarse/'
+    else:
+        lof = lof_text(lastoolsdir, lidardir + '02_lasground_new/')
+        odir = lidardir + '03_lasheight/'
 
     cmd('%slasheight.exe -lof %s -cores %i -odir %s -olas' % (lastoolsdir, lof, cores, odir))
 
-    lof = lof_text(lastoolsdir, lidardir + '02b_lasground_new_fine/')
-    odir = lidardir + '03b_lasheight_fine/'
+    if ground_poly != '':
+        lof = lof_text(lastoolsdir, lidardir + '02b_lasground_new_fine/')
+        odir = lidardir + '03b_lasheight_fine/'
 
-    cmd('%slasheight.exe -lof %s -cores %i -odir %s -olas' % (lastoolsdir, lof, cores, odir))
+        cmd('%slasheight.exe -lof %s -cores %i -odir %s -olas' % (lastoolsdir, lof, cores, odir))
 
     logging.info('OK')
 
@@ -338,36 +407,46 @@ def process_lidar(lastoolsdir,
 
     logging.info('Classifying non-ground points on coarse setting...')
 
-    lof = lof_text(lastoolsdir, lidardir + '03a_lasheight_coarse/')
-    odir = lidardir + '04a_lasclassify_coarse/'
+    if ground_poly != '':
+        lof = lof_text(lastoolsdir, lidardir + '03a_lasheight_coarse/')
+        odir = lidardir + '04a_lasclassify_coarse/'
+    else:
+        lof = lof_text(lastoolsdir, lidardir + '03_lasheight/')
+        odir = lidardir + '04_lasclassify/'
 
     cmd('%slasclassify.exe -lof %s -cores %i %s -odir %s -olas' % (lastoolsdir, lof, cores, units_code, odir))
 
     logging.info('OK')
 
-    logging.info('Classifying non-ground points on fine setting...')
+    if ground_poly != '':
+        logging.info('Classifying non-ground points on fine setting...')
 
-    lof = lof_text(lastoolsdir, lidardir + '03b_lasheight_fine/')
-    odir = lidardir + '04b_lasclassify_fine/'
+        lof = lof_text(lastoolsdir, lidardir + '03b_lasheight_fine/')
+        odir = lidardir + '04b_lasclassify_fine/'
 
-    cmd('%slasclassify.exe -lof %s -cores %i %s -odir %s -olas' % (lastoolsdir, lof, cores, units_code, odir))
+        cmd('%slasclassify.exe -lof %s -cores %i %s -odir %s -olas' % (lastoolsdir, lof, cores, units_code, odir))
 
-    logging.info('OK')
+        logging.info('OK')
 
     ##########################
     # remove tile buffers on each data set
 
     logging.info('Removing tile buffers...')
 
-    lof = lof_text(lastoolsdir, lidardir + '04a_lasclassify_coarse/')
-    odir = lidardir + '05a_lastile_rm_buffer_coarse/'
+    if ground_poly != '':
+        lof = lof_text(lastoolsdir, lidardir + '04a_lasclassify_coarse/')
+        odir = lidardir + '05a_lastile_rm_buffer_coarse/'
+    else:
+        lof = lof_text(lastoolsdir, lidardir + '04_lasclassify/')
+        odir = lidardir + '05_lastile_rm_buffer/'
 
     cmd('%slastile.exe -lof %s -cores %i -remove_buffer -odir %s -olas' % (lastoolsdir, lof, cores, odir))
 
-    lof = lof_text(lastoolsdir, lidardir + '04b_lasclassify_fine/')
-    odir = lidardir + '05b_lastile_rm_buffer_fine/'
+    if ground_poly != '':
+        lof = lof_text(lastoolsdir, lidardir + '04b_lasclassify_fine/')
+        odir = lidardir + '05b_lastile_rm_buffer_fine/'
 
-    cmd('%slastile.exe -lof %s -cores %i -remove_buffer -odir %s -olas' % (lastoolsdir, lof, cores, odir))
+        cmd('%slastile.exe -lof %s -cores %i -remove_buffer -odir %s -olas' % (lastoolsdir, lof, cores, odir))
 
     logging.info('OK')
 
@@ -377,127 +456,152 @@ def process_lidar(lastoolsdir,
     logging.info('Separating points by class type on coarse setting...')
 
     # coarse
-    lof = lof_text(lastoolsdir, lidardir + '05a_lastile_rm_buffer_coarse/')
+    if ground_poly != '':
+        lof = lof_text(lastoolsdir, lidardir + '05a_lastile_rm_buffer_coarse/')
+        podir = lidardir + '06a_separated_coarse'
+    else:
+        lof = lof_text(lastoolsdir, lidardir + '05_lastile_rm_buffer/')
+        podir = lidardir + '06_separated'
 
     for class_type in classes:
-        odir = lidardir + '06a_separated_coarse' + '/' + class_type + '/'
+        odir = podir + '/' + class_type + '/'
         class_code = int(class_type.split('-')[0])
         cmd('%slas2las.exe -lof %s -cores %i -keep_classification %i -odir %s -olas' % (
             lastoolsdir, lof, cores, class_code, odir))
 
     logging.info('OK')
 
-    logging.info('Separating points by class type on fine setting...')
+    if (ground_poly) == '' and (keep_orig_pts == False):
+        ground_results = podir + '/' + '02-Ground' + '/'
+        veg_results = podir + '/' + '05-Vegetation' + '/'
 
-    # fine
-    lof = lof_text(lastoolsdir, lidardir + '05b_lastile_rm_buffer_fine/')
+    if ground_poly != '':
+        logging.info('Separating points by class type on fine setting...')
 
-    for class_type in classes:
-        odir = lidardir + '06b_separated_fine' + '/' + class_type + '/'
-        class_code = int(class_type.split('-')[0])
-        cmd('%slas2las.exe -lof %s -cores %i -keep_classification %i -odir %s -olas' % (
-                        lastoolsdir, lof, cores, class_code, odir))
+        # fine
+        lof = lof_text(lastoolsdir, lidardir + '05b_lastile_rm_buffer_fine/')
 
-    logging.info('OK')
+        for class_type in classes:
+            odir = lidardir + '06b_separated_fine' + '/' + class_type + '/'
+            class_code = int(class_type.split('-')[0])
+            cmd('%slas2las.exe -lof %s -cores %i -keep_classification %i -odir %s -olas' % (
+                            lastoolsdir, lof, cores, class_code, odir))
+
+        logging.info('OK')
 
     ##########################
     # clip ground data sets with ground polygon
+    if ground_poly != '':
+        logging.info('Clipping ground points to inverse ground polygon on coarse setting...')
 
-    logging.info('Clipping ground points to inverse ground polygon on coarse setting...')
+        # keep points outside ground polygon for coarse setting (-interior flag)
+        lof = lof_text(lastoolsdir, lidardir + '06a_separated_coarse' + '/' + '02-Ground' + '/')
+        odir = lidardir + '07a_ground_clipped_coarse/'
 
-    # keep points outside ground polygon for coarse setting (-interior flag)
-    lof = lof_text(lastoolsdir, lidardir + '06a_separated_coarse' + '/' + '02-Ground' + '/')
-    odir = lidardir + '07a_ground_clipped_coarse/'
+        cmd('%slasclip.exe -lof %s -cores %i -poly %s -interior -donuts -odir %s -olas' % (
+            lastoolsdir, lof, cores, ground_poly, odir))
 
-    cmd('%slasclip.exe -lof %s -cores %i -poly %s -interior -donuts -odir %s -olas' % (
-        lastoolsdir, lof, cores, ground_poly, odir))
+        logging.info('OK')
 
-    logging.info('OK')
+        logging.info('Clipping ground points to ground polygon on fine setting...')
 
-    logging.info('Clipping ground points to ground polygon on fine setting...')
+        # keep points inside ground polygon for fine setting
+        lof = lof_text(lastoolsdir, lidardir + '06b_separated_fine' + '/' + '02-Ground' + '/')
+        odir = lidardir + '07b_ground_clipped_fine/'
 
-    # keep points inside ground polygon for fine setting
-    lof = lof_text(lastoolsdir, lidardir + '06b_separated_fine' + '/' + '02-Ground' + '/')
-    odir = lidardir + '07b_ground_clipped_fine/'
+        cmd('%slasclip.exe -lof %s -cores %i -poly %s -donuts -odir %s -olas' % (
+            lastoolsdir, lof, cores, ground_poly, odir))
 
-    cmd('%slasclip.exe -lof %s -cores %i -poly %s -donuts -odir %s -olas' % (
-        lastoolsdir, lof, cores, ground_poly, odir))
-
-    logging.info('OK')
+        logging.info('OK')
 
     ##########################
     # merge
 
     # merge processed ground points with original data set ground points
+
     if keep_orig_pts == True:
         logging.info('Merging new and original ground points...')
-        sources = [lidardir + '07a_ground_clipped_coarse/', lidardir + '07b_ground_clipped_fine/',
-                   lidardir + '00_separated' + '/' + '02-Ground' + '/']
+        if ground_poly != '':
+            sources = [lidardir + '07a_ground_clipped_coarse/', lidardir + '07b_ground_clipped_fine/',
+                       lidardir + '00_separated' + '/' + '02-Ground' + '/']
+        else:
+            sources = [lidardir + '06_separated' + '/' + '02-Ground' + '/',
+                       lidardir + '00_separated' + '/' + '02-Ground' + '/']
     # just use new points
-    else:
+    elif ground_poly != '':
         logging.info('Merging new ground points...')
         sources = [lidardir + '07a_ground_clipped_coarse/', lidardir + '07b_ground_clipped_fine/']
-    lof = lof_text(lastoolsdir, sources)
-    odir = lidardir + '08_ground_merged/'
 
-    cmd('%slastile.exe -lof %s -cores %i -o tile.las -tile_size %i -faf -odir %s -olas' % (
-        lastoolsdir, lof, cores, tile_size, odir))
+    if (keep_orig_pts == True) or (ground_poly != ''):
+        lof = lof_text(lastoolsdir, sources)
+        odir = lidardir + '08_ground_merged/'
+        ground_results = odir # will be overwritten if rm_duplicates block runs
+        cmd('%slastile.exe -lof %s -cores %i -o tile.las -tile_size %i -faf -odir %s -olas' % (
+            lastoolsdir, lof, cores, tile_size, odir))
 
-    logging.info('OK')
+        logging.info('OK')
 
     ##########################
     # remove duplicate ground points
 
-    logging.info('Removing duplicate ground points...')
+    if (keep_orig_pts == True):
+        logging.info('Removing duplicate ground points...')
+        lof = lof_text(lastoolsdir, lidardir + '08_ground_merged/')
+        odir = lidardir + '09_ground_rm_duplicates/'
+        ground_results = odir
 
-    lof = lof_text(lastoolsdir, lidardir + '08_ground_merged/')
-    odir = lidardir + '09_ground_rm_duplicates/'
+        cmd('%slasduplicate.exe -lof %s -cores %i -lowest_z -odir %s -olas' % (lastoolsdir, lof, cores, odir))
 
-    cmd('%slasduplicate.exe -lof %s -cores %i -lowest_z -odir %s -olas' % (lastoolsdir, lof, cores, odir))
-
-    logging.info('OK')
+        logging.info('OK')
 
     ##########################
     # merge new veg points
 
-    logging.info('Merging new vegetation points from coarse and fine run...')
+    if ground_poly != '':
+        logging.info('Merging new vegetation points from coarse and fine run...')
 
-    sources = [lidardir + '06a_separated_coarse' + '/' + '05-Vegetation' + '/',
-               lidardir + '06b_separated_fine' + '/' + '05-Vegetation' + '/']
-    lof = lof_text(lastoolsdir, sources)
-    odir = lidardir + '10_veg_new_merged/'
+        sources = [lidardir + '06a_separated_coarse' + '/' + '05-Vegetation' + '/',
+                   lidardir + '06b_separated_fine' + '/' + '05-Vegetation' + '/']
+        lof = lof_text(lastoolsdir, sources)
+        odir = lidardir + '10_veg_new_merged/'
 
-    cmd('%slastile.exe -lof %s -cores %i -o tile.las -tile_size %i -faf -odir %s -olas' % (
-        lastoolsdir, lof, cores, tile_size, odir))
+        cmd('%slastile.exe -lof %s -cores %i -o tile.las -tile_size %i -faf -odir %s -olas' % (
+            lastoolsdir, lof, cores, tile_size, odir))
 
-    logging.info('OK')
+        logging.info('OK')
 
-    #########################
-    # clip new veg points
-    # keeping points outside the ground polygon
+        #########################
+        # clip new veg points
+        # keeping points outside the ground polygon
 
-    logging.info('Clipping new vegetation points...')
+        logging.info('Clipping new vegetation points...')
 
-    lof = lof_text(lastoolsdir, lidardir + '10_veg_new_merged/')
-    odir = lidardir + '11_veg_new_clipped/'
+        lof = lof_text(lastoolsdir, lidardir + '10_veg_new_merged/')
+        odir = lidardir + '11_veg_new_clipped/'
 
-    cmd('%slasclip.exe -lof %s -cores %i -poly %s -interior -donuts -odir %s -olas' % (
-        lastoolsdir, lof, cores, ground_poly, odir))
+        cmd('%slasclip.exe -lof %s -cores %i -poly %s -interior -donuts -odir %s -olas' % (
+            lastoolsdir, lof, cores, ground_poly, odir))
 
-    logging.info('OK')
+        logging.info('OK')
 
     #########################
     # merge with original veg points
 
-    if keep_orig_pts == True:
+    if (keep_orig_pts == True):
         logging.info('Merging new and original vegetation points...')
-        sources = [lidardir + '11_veg_new_clipped/', lidardir + '00_separated' + '/' + '05-Vegetation' + '/']
-    else:
+        if ground_poly != '':
+            sources = [lidardir + '11_veg_new_clipped/', lidardir + '00_separated' + '/' + '05-Vegetation' + '/']
+        else:
+            sources = [lidardir + '06_separated' + '/' + '05-Vegetation' + '/',
+                       lidardir + '00_separated' + '/' + '05-Vegetation' + '/']
+    elif ground_poly != '':
         logging.info('Retiling new vegetation points...')
         sources = [lidardir + '11_veg_new_clipped/']
 
-    lof = lof_text(lastoolsdir, sources)
-    odir = lidardir + '12_veg_merged/'
+    if (keep_orig_pts == True) or (ground_poly != ''):
+        lof = lof_text(lastoolsdir, sources)
+        odir = lidardir + '12_veg_merged/'
+        veg_results = odir # will be overwritten if rm_duplicates block runs
 
     cmd('%slastile.exe -lof %s -cores %i -o tile.las -tile_size %i -faf -odir %s -olas' % (
         lastoolsdir, lof, cores, tile_size, odir))
@@ -506,17 +610,20 @@ def process_lidar(lastoolsdir,
 
     #########################
     # remove duplicate veg points
+    if keep_orig_pts:
+        logging.info('Removing duplicate vegetation points...')
 
-    logging.info('Removing duplicate vegetation points...')
+        lof = lof_text(lastoolsdir, lidardir + '12_veg_merged/')
+        odir = lidardir + '13_veg_rm_duplicates/'
+        veg_results = odir
 
-    lof = lof_text(lastoolsdir, lidardir + '12_veg_merged/')
-    odir = lidardir + '13_veg_rm_duplicates/'
+        cmd('%slasduplicate.exe -lof %s -cores %i -lowest_z -odir %s -olas' % (lastoolsdir, lof, cores, odir))
 
-    cmd('%slasduplicate.exe -lof %s -cores %i -lowest_z -odir %s -olas' % (lastoolsdir, lof, cores, odir))
-
-    logging.info('OK')
+        logging.info('OK')
 
     logging.info('Processing finished.')
+    logging.info('Outputs in:')
+    logging.info('%s\n%s' % (ground_results, veg_results))
 
     return
 
@@ -549,10 +656,10 @@ if __name__ == '__main__':
     b2 = Button(root, text='Browse', command=lambda: browse(root, E2, select='folder'))
     b2.grid(sticky=W, row=1, column=3)
 
-    L3 = Label(root, text='Ground area .shp file:')
+    L3 = Label(root, text='Ground area .shp file (optional):')
+    shp_var = StringVar()
     L3.grid(sticky=E, row=2, column=1)
-    E3 = Entry(root, bd=5)
-    E3.insert(END, '/'.join(sys.path[0].split('\\')[:-1]) + '/')
+    E3 = Entry(root, bd=5, textvariable=shp_var)
     E3.grid(row=2, column=2)
     b3 = Button(root, text='Browse', command=lambda: browse(root, E3, select='file', ftypes=[('Shapefile', '*.shp'),
                                                                                              ('All files', '*')]
@@ -560,11 +667,24 @@ if __name__ == '__main__':
                 )
     b3.grid(sticky=W, row=2, column=3)
 
+    # if no ground shapefile is provided, disable the fine setting and just run on "coarse"
+    def trace_choice(*args):
+        if shp_var.get() == '':
+            for widget in [E1b, E2b, E3b, E4b, E5b]:
+                widget.config(state=DISABLED)
+        else:
+            for widget in [E1b, E2b, E3b, E4b, E5b]:
+                widget.config(state='normal')
+    shp_var.trace('w', trace_choice)
+
+
+
+
     # specify lasground_new parameters
 
     root.grid_rowconfigure(5, minsize=80)
 
-    LC1 = Label(root, text='lasground_new coarse settings:')
+    LC1 = Label(root, text='standard/coarse classification parameters:')
     LC1.grid(row=5, column=0, columnspan=2)
 
     L1a = Label(root, text='step size:')
@@ -592,32 +712,32 @@ if __name__ == '__main__':
     E5a = Entry(root, bd=5)
     E5a.grid(row=10, column=1)
 
-    LC2 = Label(root, text='lasground_new fine settings:')
+    LC2 = Label(root, text='fine classification parameters (in ground area):')
     LC2.grid(row=5, column=2, columnspan=2)
 
     L1b = Label(root, text='step size:')
     L1b.grid(sticky=E, row=6, column=2)
-    E1b = Entry(root, bd=5)
+    E1b = Entry(root, bd=5, state=DISABLED)
     E1b.grid(row=6, column=3)
 
     L2b = Label(root, text='bulge:')
     L2b.grid(sticky=E, row=7, column=2)
-    E2b = Entry(root, bd=5)
+    E2b = Entry(root, bd=5, state=DISABLED)
     E2b.grid(row=7, column=3)
 
     L3b = Label(root, text='spike:')
     L3b.grid(sticky=E, row=8, column=2)
-    E3b = Entry(root, bd=5)
+    E3b = Entry(root, bd=5, state=DISABLED)
     E3b.grid(row=8, column=3)
 
     L4b = Label(root, text='down spike:')
     L4b.grid(sticky=E, row=9, column=2)
-    E4b = Entry(root, bd=5)
+    E4b = Entry(root, bd=5, state=DISABLED)
     E4b.grid(row=9, column=3)
 
     L5b = Label(root, text='offset:')
     L5b.grid(sticky=E, row=10, column=2)
-    E5b = Entry(root, bd=5)
+    E5b = Entry(root, bd=5, state=DISABLED)
     E5b.grid(row=10, column=3)
 
     # specify units
