@@ -1,0 +1,20 @@
+1. LiDAR_Processing_GUI
+
+2. create_centerline_GUI
+
+3. create_station_lines
+
+4. DEM_detrending
+
+5. Run Tuflow
+
+6. extract_channel_dims
+
+7. classify_landforms
+
+8. GCS_analysis
+
+
+document all intermediate steps as well
+
+extra tools: landform stratified velocities, reach aggregate metrics, hypsograph analysis, create thalweg
