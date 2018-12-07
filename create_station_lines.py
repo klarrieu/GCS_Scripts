@@ -7,7 +7,7 @@ import logging
 init_logger(__file__)
 arcpy.env.overwriteOutput = True
 
-
+@err_info
 def create_station_lines(line_shp, spacing, xs_length):
     '''
     Creates station lines perpendicular to line_shp with given longitudinal spacing and lateral XS length

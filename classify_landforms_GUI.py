@@ -177,6 +177,7 @@ def GCS_plot(table, units = 'm'):
     plt.show()
 
 
+@err_info
 def main_classify_landforms(tables, w_field, z_field, dist_field, make_plots = False):
     '''Classifies river segments as normal, wide bar, constricted pool, oversized, or nozzle
 
