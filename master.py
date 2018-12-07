@@ -455,10 +455,11 @@ class GCS_GUI(tk.Frame):
         self.e_cl_xs_attributes = ttk.Entry(root)
         self.e_cl_xs_attributes.grid(row=0, column=2)
         self.b_cl_xs_attributes = ttk.Button(root, text='Browse',
-                        command=lambda: browse(root, self.e_cl_xs_attributes, select='files', ftypes=[('Comma-delimited text', '.csv'),
-                                                                                 ('All files', '*')]
-                                               )
-                        )
+                                             command=lambda: browse(root, self.e_cl_xs_attributes, select='files',
+                                                                    ftypes=[('Comma-delimited text', '.csv'),
+                                                                            ('All files', '*')]
+                                                                    )
+                                             )
         self.b_cl_xs_attributes.grid(sticky=W, row=0, column=3)
 
         self.l_var1_field = ttk.Label(root, text='Width Field:')
