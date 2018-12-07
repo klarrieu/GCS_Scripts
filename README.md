@@ -1,6 +1,6 @@
 # River GCS Toolkit
 
-This repository contains a set of tools for processing geospatial data. While some tools may have a variety of fluvial geomorphological applications, an emphasis is placed on analysis of [geomorphic covariance structures](http://pasternack.ucdavis.edu/research/projects/geomorphic-covariance-structures/) (GCS). To launch the entire toolkit, run `master.py`. Otherwise, there is an individual GUI for each individual tool.
+This repository contains a set of tools for processing geospatial data. While some tools may have a variety of fluvial geomorphological applications, an emphasis is placed on analysis of [geomorphic covariance structures](http://pasternack.ucdavis.edu/research/projects/geomorphic-covariance-structures/) (GCS). To launch the entire toolkit, run `master.py`. Otherwise, there is an individual GUI included for each tool.
 
 Currently, these tools only analyze the GCS between channel width and detrended bed elevation. However, more GCS functionality is coming soon...
 
