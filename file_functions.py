@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from Tkinter import *
+from tkMessageBox import showerror
 import tkFileDialog
 import subprocess
 import logging
@@ -61,6 +62,16 @@ def browse(root, entry, select='file', ftypes=[('All files', '*')]):
         if len(dirname) > 0:
             entry.delete(0, END)
             entry.insert(END, dirname + '/')
+
+
+# wrapper to show error message when a command fails
+def err_info(func):
+    def wrapper(*args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except Exception, e:
+            showerror('Error', e)
+    return wrapper
 
 
 def check_use(filepath):

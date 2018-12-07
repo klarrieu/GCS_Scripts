@@ -92,6 +92,7 @@ def clip_centerline(centerline, channel):
     return centerline.getOutput(0)
 
 
+@err_info
 def make_centerline(DEM, channel, source, smooth_distance):
     '''Main function for creating, smoothing, and clipping a centerline
 

@@ -92,6 +92,7 @@ def pts(filename, lastoolsdir):
 
 
 # the main function that runs when 'run' button is clicked
+@err_info
 def process_lidar(lastoolsdir,
                   lidardir,
                   ground_poly,

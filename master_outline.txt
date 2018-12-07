@@ -1,10 +1,26 @@
-1. LiDAR_Processing_GUI
+-Convert LiDAR to orthometric coordinate system, if necessary.
+-Classify ground areas as polygon, if desired.
 
-2. create_centerline_GUI
+1. LiDAR_Processing
+
+-validate output, then produce DEM.
+-make upstream source polygon for centerline creation, with "Id"=1
+
+
+2. create_centerline
+
 
 3. create_station_lines
 
+-clip xs lines where they intersect twice
+-make one column: "dist_down" distance downstream
+-choose slope breaks for DEM detrending
+
+
 4. DEM_detrending
+
+-make rating curve with WinXSPRO
+
 
 5. Run Tuflow
 
@@ -15,6 +31,19 @@
 8. GCS_analysis
 
 
-document all intermediate steps as well
-
 extra tools: landform stratified velocities, reach aggregate metrics, hypsograph analysis, create thalweg
+
+
+schema:
+
+master GUI class:
+
+for each tab/tool, use a class object that executes corresponding function
+
+parallelize long loops of function calls!!
+
+use progressbar widgets?
+
+errorbox decorator on all command functions!
+
+user *args to make functions more robust
