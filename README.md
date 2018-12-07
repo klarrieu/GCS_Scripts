@@ -10,6 +10,11 @@ Currently, these tools only analyze the GCS between channel width and detrended 
 
 -LASTools: functionality used for LiDAR Data Processing tool. LASTools can be downloaded [here](https://rapidlasso.com/lastools/).
 
+## Getting Started
+
+After installing any missing prerequisites, download this repository and launch `master.py`. An explanation of each tool is provided below.
+
+
 ## Tools
 
 ### 1. LiDAR Data Processing
