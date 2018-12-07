@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from file_functions import *
 import logging
-init_logger(__file__)
 
 
 def station_coords(centerline, station_lines, DEM):
@@ -323,6 +322,8 @@ if __name__ == '__main__':
     centerline = r'G:\Kenny_Rainbow_Basin\Channel_01_Analysis\centerline\clipped_centerline.shp'
     station_lines = r'G:\Kenny_Rainbow_Basin\Channel_01_Analysis\stationing\stations_100.shp'
     DEM = r'G:\Kenny_Rainbow_Basin\Channel_01_Analysis\DEM\RB_DEM.tif'
+
+    init_logger(__file__)
 
     xyz_table = station_coords(centerline, station_lines, DEM)
     xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices = [556], make_plot = True)

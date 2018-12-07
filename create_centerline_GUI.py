@@ -8,8 +8,6 @@ from Tkinter import *
 from file_functions import *
 import logging
 
-init_logger(__file__)
-
 
 def least_cost_centerline(DEM, source):
     '''returns a rough centerline using least cost path from source'''
@@ -135,6 +133,8 @@ if __name__ == '__main__':
     #centerline smoothness
     smooth_distance = 20
     '''
+
+    init_logger(__file__)
 
     # make the GUI window
     root = Tk()

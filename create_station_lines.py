@@ -4,7 +4,6 @@ import os
 from Tkinter import *
 from file_functions import *
 import logging
-init_logger(__file__)
 arcpy.env.overwriteOutput = True
 
 @err_info
@@ -63,6 +62,8 @@ def create_station_lines(line_shp, spacing, xs_length):
 
 
 if __name__ == '__main__':
+
+    init_logger(__file__)
 
     # make the GUI
     root = Tk()

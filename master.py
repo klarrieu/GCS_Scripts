@@ -35,7 +35,7 @@ class GCS_GUI(tk.Frame):
         # ***etc. If one of these files is produced when a function runs, or entered by another browse window, update corresponding ttk.Entry widgets accordingly
 
         # set header
-        self.master.title('River GCS App')
+        self.master.title('River GCS Toolkit')
         self.master.iconbitmap('river.ico')
 
         self.bg_color = 'dark khaki'
@@ -96,8 +96,8 @@ class GCS_GUI(tk.Frame):
         E3 = ttk.Entry(root, textvariable=shp_var)
         E3.grid(row=2, column=2)
         b3 = ttk.Button(root, text='Browse', command=lambda: browse(root, E3, select='file', ftypes=[('Shapefile', '*.shp'),
-                                                                                                 ('All files', '*')]
-                                                                )
+                                                                                                     ('All files', '*')]
+                                                                    )
                         )
         b3.grid(sticky=W, row=2, column=3)
 
