@@ -315,6 +315,14 @@ def clip_raster(raster, polygon):
     logging.info('OK')
     return clipped_raster
 
+def main_det(DEM, centerline, station_lines, slope_break_indices=[]):
+
+    xyz_table = station_coords(centerline, station_lines, DEM)
+    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices=slope_break_indices, make_plot=True)
+    det = detrended_DEM(xyz_fit_table, DEM)
+
+    return det
+
 #######################################
 if __name__ == '__main__':
 
