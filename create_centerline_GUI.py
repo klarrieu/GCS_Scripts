@@ -1,10 +1,6 @@
 import arcpy
-from arcpy import env
-
 arcpy.env.overwriteOutput = True
 arcpy.CheckOutExtension('Spatial')
-import os
-from Tkinter import *
 from file_functions import *
 import logging
 
@@ -12,6 +8,7 @@ import logging
 def least_cost_centerline(DEM, source):
     '''returns a rough centerline using least cost path from source'''
     check_use([DEM, source])
+
     # make directory for output files
     outdir = os.path.dirname(DEM) + '/centerline/'
     if os.path.isdir(outdir) == False:
@@ -22,7 +19,7 @@ def least_cost_centerline(DEM, source):
     # fill sinks in DEM raster
     logging.info('Filling sinks in DEM...')
     check_use(outdir + 'filled_DEM.tif')
-    filled_DEM = arcpy.sa.Fill(DEM)
+    filled_DEM = arcpy.sa.Fill(DEM.split('.aux')[0])
     filled_DEM.save(outdir + 'filled_DEM.tif')
     logging.info('OK')
 
@@ -91,6 +88,7 @@ def clip_centerline(centerline, channel):
 
 
 @err_info
+@spatial_license
 def make_centerline(DEM, channel, source, smooth_distance):
     '''Main function for creating, smoothing, and clipping a centerline
 

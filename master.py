@@ -246,6 +246,7 @@ class GCS_GUI(tk.Frame):
         self.e_cc_dem.grid(row=0, column=2)
         self.b_cc_dem = ttk.Button(root, text='Browse', command=lambda: browse(root, self.e_cc_dem, select='file',
                                                                                ftypes=[('Raster', '*.tif'),
+                                                                                       ('Raster .aux', '*.aux, *.aux.xml'),
                                                                                        ('All files', '*')]
                                                                                )
                                    )
@@ -367,8 +368,15 @@ class GCS_GUI(tk.Frame):
         self.b_dd_station_lines.grid(sticky=W, row=2, column=2)
 
         # ***add slope breaks ttk.Entry? or shape delineation? or automate slope breaks?
+        self.e_slope_break_indices = []
 
         # ***add run ttk.Button, make sure using err_info decorator
+        self.b_dd_main = ttk.Button(root, text='    Run    ',command=lambda: dd.main_det(self.e_dd_dem,
+                                                                                         self.e_dd_centerline,
+                                                                                         self.e_slope_break_indices
+                                                                                         )
+                                    )
+        self.b_dd_main.grid(sticky=W, row=3, column=1, columnspan=2)
 
         #########################################################################
 
