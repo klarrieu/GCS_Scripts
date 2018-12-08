@@ -12,16 +12,23 @@ def create_station_lines(line_shp, spacing, xs_length):
     Creates station lines perpendicular to line_shp with given longitudinal spacing and lateral XS length
     (lengths are in units of input line coordinate system)
     '''
-
+    
     # convert line to route feature
     # *** include coordinate priority so we automatically have stationing oriented DOWNSTREAM
     logging.info('Converting input line to route...')
-    route = arcpy.CreateRoutes_lr(line_shp, 'Id', line_shp.replace('.shp', '_rt.shp'))
+    
+    line_fields = [field.name for field in arcpy.ListFields(line_shp)]
+    id = [x for x in ['Id', 'arcid'] if x in line_fields][0]
+    if id==[]:
+        raise Exception('Couldn\'t find Id Field in %s' % line_shp)
+
+    route = arcpy.CreateRoutes_lr(line_shp, id, line_shp.replace('.shp', '_rt.shp'))
+        
     logging.info('OK.')
 
     route_id, total_length = 0, 0
     # get route id and total length of route (only considering case of one line for input shapefile)
-    for row in arcpy.da.SearchCursor(route, ['Id', 'SHAPE@LENGTH']):
+    for row in arcpy.da.SearchCursor(route, [id, 'SHAPE@LENGTH']):
         route_id = row[0]
         total_length = row[1]
 
@@ -41,7 +48,7 @@ def create_station_lines(line_shp, spacing, xs_length):
 
     # make route event layer
     logging.info('Making route event layer...')
-    el_u = arcpy.MakeRouteEventLayer_lr(route, 'Id', event_table, 'ROUTE POINT LOCATION', 'event_layer', 'OFFSET')
+    el_u = arcpy.MakeRouteEventLayer_lr(route, id, event_table, 'ROUTE POINT LOCATION', 'event_layer', 'OFFSET')
     # merge w/ itself to index
     el_name = line_shp.replace('.shp', '_el.shp')
     el = arcpy.Merge_management(el_u, el_name)
