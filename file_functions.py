@@ -70,6 +70,7 @@ def err_info(func):
         try:
             func(*args, **kwargs)
         except Exception, e:
+            logger.info(e)
             showerror('Error', e)
     return wrapper
 
