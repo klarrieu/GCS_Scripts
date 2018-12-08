@@ -38,7 +38,7 @@ schema:
 
 master GUI class:
 
-for each tab/tool, use a class object that executes corresponding function
+for each tab/tool, use a class object that executes corresponding function?
 
 parallelize long loops of function calls!!
 
