@@ -7,7 +7,7 @@ import tkFileDialog
 import subprocess
 import logging
 import arcpy
-from arcpy.sa import *
+
 arcpy.env.overwriteOutput = True
 arcpy.CheckOutExtension('Spatial')
 
@@ -73,6 +73,12 @@ def err_info(func):
             showerror('Error', e)
     return wrapper
 
+def spatial_license(func):
+    def wrapper(*args, **kwargs):
+        arcpy.CheckOutExtension('Spatial')
+        func(*args, **kwargs)
+        arcpy.CheckInExtension('Spatial')
+    return wrapper
 
 def check_use(filepath):
     """Checks if a file or list of files is in use by another process
