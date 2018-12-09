@@ -53,7 +53,37 @@ def least_cost_centerline(DEM, source):
                                                          simplify='NO_SIMPLIFY'
                                                          )
     logging.info('OK')
+
+    logging.info('Deleting intermediate files...')
+    del_files = [filled_DEM, flow_dir, lc_path_raster]
+    for f in del_files:
+        arcpy.Delete_management(f)
+    logging.info('OK')
+
     return rough_centerline.getOutput(0)
+
+
+def remove_spurs(line, spur_length=2):
+    '''Removes spurs from line smaller than spur_length'''
+    check_use([line, line.replace('.shp', '_rm_spurs.shp')])
+
+    logging.info('Removing spurs smaller than % s units...' % str(spur_length))
+    # measure lengths
+    arcpy.AddGeometryAttributes_management(line, 'LENGTH')
+    # convert to layer
+    lyr = arcpy.MakeFeatureLayer_management(line, line.replace('.shp', '.lyr'))
+    # select the line segments with length > spur_length
+    no_spurs = arcpy.SelectLayerByAttribute_management(lyr, where_clause='LENGTH > %s' % str(spur_length))
+    # copy this selection to a new feature
+    no_spurs = arcpy.CopyFeatures_management(no_spurs, line.replace('.shp', '_rm_spurs.lyr'))
+    # delete input line and layers
+    del_files = [line, line.replace('.shp', '.lyr'), line.replace('.shp', '_rm_spurs.lyr')]
+    for f in del_files:
+        arcpy.Delete_management(f)
+
+    logging.info('OK.')
+
+    return line.replace('.shp', '_rm_spurs.shp')
 
 
 def smooth_centerline(rough_centerline, smooth_distance):
@@ -62,13 +92,19 @@ def smooth_centerline(rough_centerline, smooth_distance):
     outdir = os.path.dirname(rough_centerline) + '/'
     check_use([rough_centerline, outdir + 'smooth_centerline.shp'])
 
+    # dissolve rough centerline in case multiple pieces were made...
+    centerline = arcpy.Dissolve_management(rough_centerline, outdir + 'dis_rough_centerline.shp')
+
     logging.info('Smoothing centerline...')
-    centerline = arcpy.cartography.SmoothLine(rough_centerline,
+    centerline = arcpy.cartography.SmoothLine(centerline,
                                               outdir + 'smooth_centerline.shp',
                                               algorithm='PAEK',
                                               tolerance=smooth_distance
                                               )
+
+    arcpy.Delete_management(outdir + 'dis_rough_centerline.shp')
     logging.info('OK')
+
     return centerline.getOutput(0)
 
 
@@ -76,12 +112,12 @@ def clip_centerline(centerline, channel):
     '''removes parts of centerline falling outside channel polygon'''
 
     outdir = os.path.dirname(centerline) + '/'
-    check_use([centerline, channel, outdir + 'clipped_centerline.shp'])
+    check_use([centerline, channel, outdir + 'centerline.shp'])
 
     logging.info('Clipping centerline to channel...')
     centerline = arcpy.Clip_analysis(centerline,
                                      channel,
-                                     outdir + 'clipped_centerline.shp'
+                                     outdir + 'centerline.shp'
                                      )
     logging.info('OK')
     return centerline.getOutput(0)
@@ -113,8 +149,16 @@ def make_centerline(DEM, channel, source, smooth_distance):
                outdir + 'clipped_centerline.shp'
                ])
     rough_centerline = least_cost_centerline(DEM, source)
+    rough_centerline = remove_spurs(rough_centerline)
     centerline = smooth_centerline(rough_centerline, smooth_distance)
     centerline = clip_centerline(centerline, channel)
+
+    logging.info('Deleting intermediate files...')
+    del_files = [rough_centerline, outdir + 'smooth_centerline.shp']
+    for f in del_files:
+        arcpy.Delete_management(f)
+    logging.info('OK')
+
     logging.info('Finished: %s' % centerline)
     return centerline
 

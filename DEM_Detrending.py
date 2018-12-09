@@ -17,7 +17,7 @@ import logging
 def station_coords(centerline, station_lines, DEM):
     '''Computes points of intersection between centerline and station lines.
         Outputs an .xls file containing intersection XYZ coordinates.'''
-    outdir = os.path.dirname(DEM) + '/'
+    outdir = os.path.dirname(DEM) + '\\'
     check_use([centerline,
                station_lines,
                DEM,
@@ -41,7 +41,7 @@ def station_coords(centerline, station_lines, DEM):
     logging.info('Extracting XYZ coordinates at intersection points...')
     # extract Z coordinates to points attribute table for each point from DEM
     intersections = arcpy.sa.ExtractValuesToPoints(intersections,
-                                                   DEM,
+                                                   DEM.split('.aux')[0],
                                                    outdir + 'intersection_coords.shp'
                                                    )
     # add XY coordinates to attribute table
@@ -53,6 +53,14 @@ def station_coords(centerline, station_lines, DEM):
                                           outdir + 'intersection_coords.xls'
                                           )
     logging.info('OK')
+
+    # delete intermediate files
+    logging.info('Deleting intermediate files...')
+    del_files = [outdir + 'intersection_pts.shp', outdir + 'intersection_pts_sp.shp', outdir + 'intersection_coords.shp']
+    for f in del_files:
+        arcpy.Delete_management(f)
+    logging.info('OK')
+
     return table.getOutput(0)
 
 
@@ -74,7 +82,7 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], make_p
     if 'dist_down' in df.columns.tolist():
         coords = df[['ORIG_FID', 'dist_down', 'POINT_X', 'POINT_Y', 'RASTERVALU']]
     else:
-        coords = df[['ORIG_FID', 'ET_STATION', 'POINT_X', 'POINT_Y', 'RASTERVALU']]
+        coords = df[['ORIG_FID', 'LOCATION', 'POINT_X', 'POINT_Y', 'RASTERVALU']]
 
     # rename columns
     coords.columns = ['station', 'distance downstream', 'x', 'y', 'z']
@@ -165,12 +173,12 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], make_p
     # save a .csv containing x,y,z_fit table
     xyz_fit = pd.DataFrame({'x': x, 'y': y, 'z_fit': z_fits})
     xyz_fit.to_csv(os.path.dirname(intersection_coords) + '/xyz_fit.csv', index=False)
-    logging.info('Saved fitted coordinates to %s' % (os.path.dirname(intersection_coords) + '/xyz_fit.csv'))
+    logging.info('Saved fitted coordinates to %s' % (os.path.dirname(intersection_coords) + '\\xyz_fit.csv'))
 
     if make_plot == True:
         ################################
         # plot the elevation profile with fitted line segments
-
+        plt.figure(figsize=(24, 16))
         plot1 = plt.subplot(3, 1, 1)
         plt.title('Longitudinal Bed Elevation')
         plt.xlabel('Distance Downstream (%s)' % units)
@@ -210,11 +218,19 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], make_p
             plt.axvline(x=x_val - 0.5, linestyle='--')
 
         ###############################
-        # display the plots
+        # save the plots
+        plot_file = os.path.dirname(intersection_coords) + '\\longitudinal_profile.png'
+        plt.savefig(plot_file)
+        logging.info('Saved longitudinal profile plot: %s' % plot_file)
 
-        plt.show()
+    # delete intermediate files
+    logging.info('Deleting intermediate files...')
+    del_files = [intersection_coords]
+    for f in del_files:
+        arcpy.Delete_management(f)
+    logging.info('OK')
 
-    return os.path.dirname(intersection_coords) + '/xyz_fit.csv'
+    return os.path.dirname(intersection_coords) + '\\xyz_fit.csv'
 
 
 def detrend_DEM(fit_table, DEM):
@@ -237,7 +253,7 @@ def detrend_DEM(fit_table, DEM):
                                                in_x_field='x',
                                                in_y_field='y',
                                                in_z_field='z_fit',
-                                               spatial_reference=arcpy.Describe(DEM).SpatialReference
+                                               spatial_reference=arcpy.Describe(DEM.split('.aux')[0]).SpatialReference
                                                )
     points = arcpy.SaveToLayerFile_management('points_layer',
                                               fit_table.replace('.csv', '.lyr')
@@ -261,16 +277,23 @@ def detrend_DEM(fit_table, DEM):
     z_fit_raster = arcpy.PolygonToRaster_conversion(thiessen,
                                                     'z_fit',
                                                     outdir + 'z_fit_raster.tif',
-                                                    cellsize=float(arcpy.GetRasterProperties_management(DEM,
+                                                    cellsize=float(arcpy.GetRasterProperties_management(DEM.split('.aux')[0],
                                                                                                         'CELLSIZEX').getOutput(
                                                         0))
                                                     )
 
     # subtract from DEM raster
-    detrended_DEM = arcpy.Raster(DEM) - arcpy.Raster(z_fit_raster)
+    detrended_DEM = arcpy.Raster(DEM.split('.aux')[0]) - arcpy.Raster(z_fit_raster)
     detrended_DEM.save(outdir + 'detrended_DEM.tif')
 
     logging.info('OK')
+
+    logging.info('Deleting intermediate files...')
+    del_files = [thiessen, fit_table, points, points.replace('.shp', '.lyr')]
+    for f in del_files:
+        arcpy.Delete_management(f)
+    logging.info('OK')
+
     logging.info('Saved detrended DEM: %s' % detrended_DEM)
     return str(detrended_DEM)
 
@@ -313,11 +336,11 @@ def clip_raster(raster, polygon):
 
 @err_info
 @spatial_license
-def main_det(DEM, centerline, station_lines, channel_shp, slope_break_indices=[]):
+def main_det(DEM, centerline, station_lines, slope_break_indices=[]):
     xyz_table = station_coords(centerline, station_lines, DEM)
     xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices=slope_break_indices, make_plot=True)
-    det = detrended_DEM(xyz_fit_table, DEM)
-    det = clip_raster(det, channel_shp)
+    det = detrend_DEM(xyz_fit_table, DEM)
+    # det = clip_raster(det, channel_shp)
 
     return det
 
