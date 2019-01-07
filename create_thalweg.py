@@ -17,27 +17,40 @@ def make_thalweg(d_ras, v_ras, source, smooth_distance):
     Returns:
         thalweg shapefile (saved to directory of d_ras)
     '''
-    logging.info('Creating thalweg...')
 
-    odir = os.path.dirname(d_ras)
+
+    odir = os.path.dirname(d_ras)+'\\'
 
     depth = arcpy.Raster(d_ras)
     velocity = arcpy.Raster(v_ras)
+    logging.info('Calculating inverse conveyance raster...')
     conveyance = depth*velocity**2
     max_conveyance = float(arcpy.GetRasterProperties_management(conveyance, 'MAXIMUM').getOutput(0))
     inv_conveyance = max_conveyance - conveyance
-    inv_conveyance.save(odir+'\\inv_conveyance.tif')
-    flow_direction = arcpy.sa.FlowDirection(inv_conveyance)
-    flow_direction.save(odir+'\\flow_dir.tif')
+    inv_conveyance.save(odir + 'inv_conveyance.tif')
+    logging.info('OK')
+    logging.info('Filling sinks in inverse conveyance raster...')
+    fill_inv_conveyance = arcpy.sa.Fill(inv_conveyance)
+    fill_inv_conveyance.save(odir + 'fill_inv_conveyance.tif')
+    logging.info('OK')
+    logging.info('Calculating flow direction...')
+    flow_direction = arcpy.sa.FlowDirection(fill_inv_conveyance)
+    flow_direction.save(odir + 'flow_dir.tif')
+    logging.info('OK')
 
     # least cost path
-    lc_ras = arcpy.sa.CostPath(source, inv_conveyance, flow_direction, path_type='BEST_SINGLE', destination_field='Id')
+    logging.info('Calculating least cost path...')
+    lc_ras = arcpy.sa.CostPath(source, fill_inv_conveyance, flow_direction, path_type='BEST_SINGLE', destination_field='Id')
     lc_ras.save(odir+'\\lc_ras.tif')
-    thalweg = arcpy.RasterToPolyline_conversion(lc_ras, odir + '\\thalweg.shp', simplify='NO_SIMPLIFY')
+    logging.info('OK')
+    logging.info('Converting path to thalweg polyline...')
+    thalweg = arcpy.RasterToPolyline_conversion(lc_ras, odir + 'rough_thalweg.shp', simplify='NO_SIMPLIFY')
+    logging.info('OK')
 
     # smooth line
+    logging.info('Smoothing thalweg...')
     if smooth_distance != 0:
-        thalweg = arcpy.cartography.SmoothLine(thalweg, odir + '\\thalweg.shp', algorithm='PAEK', tolerance=smooth_distance)
+        thalweg = arcpy.cartography.SmoothLine(thalweg, odir + 'thalweg.shp', algorithm='PAEK', tolerance=smooth_distance)
 
     logging.info('OK.')
     logging.info('Finished: %s' % thalweg)

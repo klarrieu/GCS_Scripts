@@ -10,7 +10,7 @@ def least_cost_centerline(DEM, source):
     check_use([DEM, source])
 
     # make directory for output files
-    outdir = os.path.dirname(DEM) + '/centerline/'
+    outdir = os.path.dirname(DEM) + '\\centerline\\'
     if os.path.isdir(outdir) == False:
         os.mkdir(outdir)
         logging.info('Created output directory %s' % outdir)

@@ -10,6 +10,7 @@ arcpy.env.overwriteOutput = True
 arcpy.CheckOutExtension('Spatial')
 
 @err_info
+@spatial_license
 def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buffer_size='', rm_up_length=0, rm_down_length=0, reach_breaks=''):
     '''Creates wetted polygon XSs for each wetted polygon, then extracts W,Z and other attributes
 
