@@ -368,17 +368,25 @@ class GCS_GUI(tk.Frame):
                                              )
         self.b_dd_station_lines.grid(sticky=W, row=2, column=2)
 
+        self.l_dd_regression = ttk.Label(root, text='Regression:')
+        self.l_dd_regression.grid(sticky=E, row=3, column=0)
+        self.cb_dd_regression = ttk.Combobox(root, values=('linear', 'quadratic'), state='readonly')
+        self.cb_dd_regression.current(0)
+        self.cb_dd_regression.grid(row=3, column=1)
+
         # ***add slope breaks ttk.Entry? or shape delineation? or automate slope breaks?
         self.slope_break_indices = []
 
         # ***add run ttk.Button, make sure using err_info decorator
-        self.b_dd_main = ttk.Button(root, text='    Run    ',command=lambda: dd.main_det(self.e_dd_dem.get(),
-                                                                                         self.e_dd_centerline.get(),
-                                                                                         self.e_dd_station_lines.get(),
-                                                                                         self.slope_break_indices
-                                                                                         )
+        self.b_dd_main = ttk.Button(root, text='    Run    ',
+                                    command=lambda: dd.main_det(self.e_dd_dem.get(),
+                                                                self.e_dd_centerline.get(),
+                                                                self.e_dd_station_lines.get(),
+                                                                self.slope_break_indices,
+                                                                regression=self.cb_dd_regression.get()
+                                                                )
                                     )
-        self.b_dd_main.grid(sticky=W, row=3, column=1, columnspan=2)
+        self.b_dd_main.grid(sticky=W, row=4, column=1, columnspan=2)
 
         #########################################################################
 

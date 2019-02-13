@@ -64,9 +64,9 @@ def station_coords(centerline, station_lines, DEM):
     return table.getOutput(0)
 
 
-def trend_fit(intersection_coords, station_lines, slope_break_indices=[], make_plot=False):
-    '''Fits longitudinal elevation profile to piecewise linear function.
-        Slope breaks are made where elevation difference between stations is greater than devs standard deviations from average difference'''
+def trend_fit(intersection_coords, station_lines, slope_break_indices=[], regression='linear', make_plot=False):
+    '''Fits longitudinal elevation profile to piecewise linear or quadratic function.
+        Slope breaks are made at defined indices.'''
 
     # get units
     units = arcpy.Describe(station_lines).spatialReference.linearUnitName
@@ -92,7 +92,7 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], make_p
     coords.index = map(int, coords['distance downstream'] / spacing)
     coords = coords.sort_values(by=['distance downstream'])
 
-    # station is numbered going downstream, regardless if ET GeoWizards numbered stations going upstream
+    # station is numbered going downstream
     station = coords.index.tolist()
     # distance downstream
     dist = coords['distance downstream'].tolist()
@@ -101,31 +101,8 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], make_p
     y = coords.y.tolist()
     z = coords.z.tolist()
 
-    '''
     ###############################
-    #not using anymore, not a great idea
-    #make slope breaks where change in z between stations is greater than m standard deviations from the mean
-
-    #create list of station numbers to the right of each break
-    slope_break_stations = []
-    #and a list of indices to the right of each break (in case station numbers are not 0,1,2,...)
-    slope_break_indices = []
-
-    delta_zs = [z2-z1 for z1, z2 in zip(z,z[1:])]
-    sigma = np.std(delta_zs)
-    avg = np.mean(delta_zs)
-    for i, delta_z in enumerate(delta_zs):
-        if abs(delta_z - avg) > devs*sigma:
-            slope_break_stations.append(station[i+1])
-            slope_break_indices.append(i+1)
-    logging.info 'Making slope breaks at stations: ', slope_break_stations
-
-    slope_break_dist = [spacing*x_i for x_i in slope_break_indices]
-`   '''
-
-    ###############################
-    # use slope_breaks to make a linear regression for each section
-
+    # use slope_breaks to make a regression for each reach
     slope_break_dist = [spacing * x_i for x_i in slope_break_indices]
 
     # fit_params contains lists of [slope, intercept] pairs for each fitted line segment
@@ -134,19 +111,36 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], make_p
     z_sections = split_list(z, slope_break_indices)
 
     for i, (d_section, z_section) in enumerate(zip(d_sections, z_sections)):
-        m, b = np.polyfit(d_section, z_section, deg=1)
-        logging.info('Reach %i length: %i%s' % (i + 1, int(spacing * (len(d_section) - 1)), units))
-        logging.info('Reach %i slope: %f' % (i + 1, abs(m)))
-        fit_params.append([m, b])
+        if regression == 'linear':
+            m, b = np.polyfit(d_section, z_section, deg=1)
+            fit_params.append([m, b])
+            logging.info('Reach %i length: %i%s' % (i + 1, int(spacing * (len(d_section) - 1)), units))
+            logging.info('Reach %i slope: %f' % (i + 1, abs(m)))
+        elif regression == 'quadratic':
+            a, b, c = np.polyfit(d_section, z_section, deg=2)
+            fit_params.append([a, b, c])
+            quadratic = lambda x_i: a*x_i**2 + b*x_i + c
+            mean_slope = (quadratic(d_section[-1]) - quadratic(d_section[0]))/(d_section[-1] - d_section[0])
+            logging.info('Reach %i length: %i%s' % (i + 1, int(spacing * (len(d_section) - 1)), units))
+            logging.info('Reach %i mean slope: %f' % (i + 1, abs(mean_slope)))
 
     ###############################
     # calculate residuals
-
     z_fits = []
     for i, d_section in enumerate(d_sections):
-        m, b = fit_params[i]
-        z_fits.extend([m * x_i + b for x_i in d_section])
+        if regression == 'linear':
+            m, b = fit_params[i]
+            z_fits.extend([m * x_i + b for x_i in d_section])
+        elif regression == 'quadratic':
+            a, b, c = fit_params[i]
+            z_fits.extend([a*x_i**2 + b*x_i + c for x_i in d_section])
     z_res = [z_val - z_fit for z_val, z_fit in zip(z, z_fits)]
+
+    # calculate r squared goodness of fit
+    ss_res = np.sum(np.asarray(z_res) ** 2)
+    ss_tot = np.sum((np.asarray(z) - np.mean(z)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+    logging.info('r^2: %f' % r_squared)
 
     ###############################
     # standardize the residuals
@@ -184,23 +178,30 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], make_p
         plt.xlabel('Distance Downstream (%s)' % units)
         plt.ylabel('Centerline Bed Elevation (%s)' % units)
         plt.grid()
-        plt.plot(dist, z)
+        plt.plot(dist, z, label='longitudinal profile')
+        plt.xlim(dist[0], dist[-1])
         for i, d_section in enumerate(d_sections):
-            m, b = fit_params[i]
-            plt.plot(d_section, [m * x_i + b for x_i in d_section], 'r')
+            if regression == 'linear':
+                m, b = fit_params[i]
+                plt.plot(d_section, [m * x_i + b for x_i in d_section], 'r', label='%s regression' % regression)
+            elif regression == 'quadratic':
+                a, b, c = fit_params[i]
+                plt.plot(d_section, [a*x_i**2 + b*x_i + c for x_i in d_section], 'r', label='%s regression' % regression)
         for x_val in slope_break_dist:
             plt.axvline(x=x_val - 0.5, linestyle='--')
+        plt.legend()
 
         ###############################
         # plot the residuals
 
         plot2 = plt.subplot(3, 1, 2)
-        plt.title('Linear Regression Elevation Residuals')
+        plt.title('Elevation Residuals')
         plt.xlabel('Distance Downstream (%s)' % units)
         plt.ylabel('Elevation Residuals (%s)' % units)
         plt.grid()
         plt.axhline(y=0, linestyle='--', color='black')
         plt.plot(dist, z_res)
+        plt.xlim(dist[0], dist[-1])
         for x_val in slope_break_dist:
             plt.axvline(x=x_val - 0.5, linestyle='--')
 
@@ -221,9 +222,11 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], make_p
         # save the plots
         plot_file = os.path.dirname(intersection_coords) + '\\longitudinal_profile.png'
         plt.savefig(plot_file)
+        plt.close()
         logging.info('Saved longitudinal profile plot: %s' % plot_file)
 
     # delete intermediate files
+
     logging.info('Deleting intermediate files...')
     del_files = [intersection_coords]
     for f in del_files:
@@ -289,7 +292,7 @@ def detrend_DEM(fit_table, DEM):
     logging.info('OK')
 
     logging.info('Deleting intermediate files...')
-    del_files = [thiessen, fit_table, points, points.replace('.shp', '.lyr')]
+    del_files = [thiessen, fit_table, points, fit_table.replace('.csv', '.lyr'), z_fit_raster]
     for f in del_files:
         arcpy.Delete_management(f)
     logging.info('OK')
@@ -336,9 +339,9 @@ def clip_raster(raster, polygon):
 
 @err_info
 @spatial_license
-def main_det(DEM, centerline, station_lines, slope_break_indices=[]):
+def main_det(DEM, centerline, station_lines, slope_break_indices=[], regression='linear'):
     xyz_table = station_coords(centerline, station_lines, DEM)
-    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices=slope_break_indices, make_plot=True)
+    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices=slope_break_indices, regression=regression, make_plot=True)
     det = detrend_DEM(xyz_fit_table, DEM)
     # det = clip_raster(det, channel_shp)
 
@@ -348,15 +351,16 @@ def main_det(DEM, centerline, station_lines, slope_break_indices=[]):
 #######################################
 if __name__ == '__main__':
     # input files
-    centerline = r'G:\Kenny_Rainbow_Basin\Channel_01_Analysis\centerline\clipped_centerline.shp'
-    station_lines = r'G:\Kenny_Rainbow_Basin\Channel_01_Analysis\stationing\stations_100.shp'
-    DEM = r'G:\Kenny_Rainbow_Basin\Channel_01_Analysis\DEM\RB_DEM.tif'
+    idir = 'G:\\Ken_RB\\c01\\fit_test\\'
+    centerline = idir + 'clipped_centerline.shp'
+    station_lines = idir + 'stations_100.shp'
+    DEM = idir + 'RB_DEM.tif'
 
     init_logger(__file__)
 
     xyz_table = station_coords(centerline, station_lines, DEM)
-    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices=[556], make_plot=True)
-
+    # xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices=[556], regression='linear', make_plot=True)
+    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices=[], regression='quadratic', make_plot=True)
     detrended_DEM = detrend_DEM(xyz_fit_table, DEM)
     # buff = channel_buffer(centerline, buffer_size = 50)
     # clipped_detrended_DEM = clip_raster(detrended_DEM, buff)
