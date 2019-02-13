@@ -492,7 +492,6 @@ def GCS_plots(data):
     plt.close(fig)
 
     # GCS autocorrelation at each flow
-    '''
     fig = plt.figure()
     plt.title('Autocorrelation')
     plt.xlabel('Lag')
@@ -500,12 +499,12 @@ def GCS_plots(data):
     for flow in flow_names:
         # x = data[flow]['All']['dist_down'].tolist()
         gcs = data[flow]['All']['Z_s_W_s'].tolist()
-        plt.acorr(gcs, usevlines=True, normed=True, label=flow)
+        plt.acorr(gcs, usevlines=True, normed=True, label=flow, maxlags=None)
     plt.legend()
-    plt.savefig('GCSacorr.png')
+    plt.savefig('%sGCSacorr.png' % flow)
     output.append(fig)
     plt.close()
-    '''
+
     # GCS cross-correlation between flows
     # 2D Fourier transform for Ws and Zs at each flow
     # power spectral density
