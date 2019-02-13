@@ -140,7 +140,7 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], regres
     ss_res = np.sum(np.asarray(z_res) ** 2)
     ss_tot = np.sum((np.asarray(z) - np.mean(z)) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
-    logging.info('r^2: %f' % r_squared)
+    logging.info('r^2 goodness of fit: %f' % r_squared)
 
     ###############################
     # standardize the residuals
@@ -172,42 +172,39 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], regres
     if make_plot == True:
         ################################
         # plot the elevation profile with fitted line segments
-        plt.figure(figsize=(24, 16))
-        plot1 = plt.subplot(3, 1, 1)
-        plt.title('Longitudinal Bed Elevation')
-        plt.xlabel('Distance Downstream (%s)' % units)
-        plt.ylabel('Centerline Bed Elevation (%s)' % units)
-        plt.grid()
-        plt.plot(dist, z, label='longitudinal profile')
-        plt.xlim(dist[0], dist[-1])
+        fig, ax = plt.subplots(2, 1, sharex=True, figsize=(24, 12))
+        ax[0].set_title('Longitudinal Bed Profile')
+        ax[0].set_ylabel('Centerline Bed Elevation (%s)' % units)
+        ax[0].grid()
+        ax[0].plot(dist, z, label='longitudinal profile')
+        ax[0].set_xlim(dist[0], dist[-1])
         for i, d_section in enumerate(d_sections):
             if regression == 'linear':
                 m, b = fit_params[i]
-                plt.plot(d_section, [m * x_i + b for x_i in d_section], 'r', label='%s regression' % regression)
+                ax[0].plot(d_section, [m * x_i + b for x_i in d_section], label='%s regression' % regression)
             elif regression == 'quadratic':
                 a, b, c = fit_params[i]
-                plt.plot(d_section, [a*x_i**2 + b*x_i + c for x_i in d_section], 'r', label='%s regression' % regression)
+                ax[0].plot(d_section, [a*x_i**2 + b*x_i + c for x_i in d_section], label='%s regression' % regression)
         for x_val in slope_break_dist:
-            plt.axvline(x=x_val - 0.5, linestyle='--')
-        plt.legend()
+            ax[0].axvline(x=x_val - 0.5, linestyle='--')
+        ax[0].legend()
 
         ###############################
         # plot the residuals
 
-        plot2 = plt.subplot(3, 1, 2)
-        plt.title('Elevation Residuals')
-        plt.xlabel('Distance Downstream (%s)' % units)
-        plt.ylabel('Elevation Residuals (%s)' % units)
-        plt.grid()
-        plt.axhline(y=0, linestyle='--', color='black')
-        plt.plot(dist, z_res)
-        plt.xlim(dist[0], dist[-1])
+        ax[1].set_title('Elevation Residuals')
+        ax[1].set_xlabel('Distance Downstream (%s)' % units)
+        ax[1].set_ylabel('Elevation Residuals (%s)' % units)
+        ax[1].grid()
+        ax[1].axhline(y=0, linestyle='--', color='black')
+        ax[1].plot(dist, z_res)
+        ax[1].set_xlim(dist[0], dist[-1])
         for x_val in slope_break_dist:
-            plt.axvline(x=x_val - 0.5, linestyle='--')
+            ax[1].axvline(x=x_val - 0.5, linestyle='--')
 
         ###############################
         # plot the standardized residuals
-
+        '''
         plot3 = plt.subplot(3, 1, 3)
         plt.title('Standardized Elevation Residuals')
         plt.xlabel('Distance Downstream (%s)' % units)
@@ -217,11 +214,11 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], regres
         plt.plot(dist, zs)
         for x_val in slope_break_dist:
             plt.axvline(x=x_val - 0.5, linestyle='--')
-
+        '''
         ###############################
         # save the plots
         plot_file = os.path.dirname(intersection_coords) + '\\longitudinal_profile.png'
-        plt.savefig(plot_file)
+        plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.1)
         plt.close()
         logging.info('Saved longitudinal profile plot: %s' % plot_file)
 
