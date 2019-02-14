@@ -231,7 +231,7 @@ if __name__ == '__main__':
     E6.insert(END, '0')
     E6.grid(row=10, column=2)
 
-    L7 = Label(root, text='Reach Breaks:')
+    L7 = Label(root, text='Reach Breaks (distance downstream):')
     L7.grid(sticky=E, row=11, column=1)
     E7 = Entry(root, bd=5)
     E7.grid(row=11, column=2)

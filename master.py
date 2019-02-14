@@ -368,25 +368,26 @@ class GCS_GUI(tk.Frame):
                                              )
         self.b_dd_station_lines.grid(sticky=W, row=2, column=2)
 
-        self.l_dd_regression = ttk.Label(root, text='Regression:')
-        self.l_dd_regression.grid(sticky=E, row=3, column=0)
+        self.l_dd_slope_breaks = ttk.Label(root, text='Slope Breaks (distance downstream): ')
+        self.l_dd_slope_breaks.grid(sticky=E, row=3, column=0)
+        self.e_dd_slope_breaks = ttk.Entry(root)
+        self.e_dd_slope_breaks.grid(row=3, column=1)
+
+        self.l_dd_regression = ttk.Label(root, text='Regression: ')
+        self.l_dd_regression.grid(sticky=E, row=4, column=0)
         self.cb_dd_regression = ttk.Combobox(root, values=('linear', 'quadratic'), state='readonly')
         self.cb_dd_regression.current(0)
-        self.cb_dd_regression.grid(row=3, column=1)
+        self.cb_dd_regression.grid(row=4, column=1)
 
-        # ***add slope breaks ttk.Entry? or shape delineation? or automate slope breaks?
-        self.slope_break_indices = []
-
-        # ***add run ttk.Button, make sure using err_info decorator
         self.b_dd_main = ttk.Button(root, text='    Run    ',
                                     command=lambda: dd.main_det(self.e_dd_dem.get(),
                                                                 self.e_dd_centerline.get(),
                                                                 self.e_dd_station_lines.get(),
-                                                                self.slope_break_indices,
+                                                                map(float, self.e_dd_slope_breaks.get().split(',')) if self.e_dd_slope_breaks.get() != '' else '',
                                                                 regression=self.cb_dd_regression.get()
                                                                 )
                                     )
-        self.b_dd_main.grid(sticky=W, row=4, column=1, columnspan=2)
+        self.b_dd_main.grid(sticky=W, row=5, column=1, columnspan=2)
 
         #########################################################################
 
@@ -446,7 +447,7 @@ class GCS_GUI(tk.Frame):
         self.e_rm_down_length.insert(END, '0')
         self.e_rm_down_length.grid(row=10, column=2)
 
-        self.l_ec_reach_breaks = ttk.Label(root, text='Reach Breaks:')
+        self.l_ec_reach_breaks = ttk.Label(root, text='Reach Breaks (distance downstream):')
         self.l_ec_reach_breaks.grid(sticky=E, row=11, column=1)
         self.e_ec_reach_breaks = ttk.Entry(root)
         self.e_ec_reach_breaks.grid(row=11, column=2)

@@ -1,14 +1,5 @@
-'''
-#input: x,y,z coordinate table from centerline-station intersections
-#output: plot of fitted elevation profile
-         plot of residual elevations after fitting
-         plot of standardized residual elevations
-         detrended DEM
-'''
-
 import arcpy
 arcpy.env.overwriteOutput = True
-arcpy.CheckOutExtension("Spatial")
 import matplotlib.pyplot as plt
 from file_functions import *
 import logging
@@ -64,7 +55,7 @@ def station_coords(centerline, station_lines, DEM):
     return table.getOutput(0)
 
 
-def trend_fit(intersection_coords, station_lines, slope_break_indices=[], regression='linear', make_plot=False):
+def trend_fit(intersection_coords, station_lines, slope_breaks=[], regression='linear', make_plot=False):
     '''Fits longitudinal elevation profile to piecewise linear or quadratic function.
         Slope breaks are made at defined indices.'''
 
@@ -103,7 +94,7 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], regres
 
     ###############################
     # use slope_breaks to make a regression for each reach
-    slope_break_dist = [spacing * x_i for x_i in slope_break_indices]
+    slope_break_indices = [int(d_i/spacing) for d_i in slope_breaks]
 
     # fit_params contains lists of [slope, intercept] pairs for each fitted line segment
     fit_params = []
@@ -185,7 +176,7 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], regres
             elif regression == 'quadratic':
                 a, b, c = fit_params[i]
                 ax[0].plot(d_section, [a*x_i**2 + b*x_i + c for x_i in d_section], label='%s regression' % regression)
-        for x_val in slope_break_dist:
+        for x_val in slope_breaks:
             ax[0].axvline(x=x_val - 0.5, linestyle='--')
         ax[0].legend()
 
@@ -199,7 +190,7 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], regres
         ax[1].axhline(y=0, linestyle='--', color='black')
         ax[1].plot(dist, z_res)
         ax[1].set_xlim(dist[0], dist[-1])
-        for x_val in slope_break_dist:
+        for x_val in slope_breaks:
             ax[1].axvline(x=x_val - 0.5, linestyle='--')
 
         ###############################
@@ -212,14 +203,13 @@ def trend_fit(intersection_coords, station_lines, slope_break_indices=[], regres
         plt.grid()
         plt.axhline(y=0, linestyle='--', color='black')
         plt.plot(dist, zs)
-        for x_val in slope_break_dist:
+        for x_val in slope_breaks:
             plt.axvline(x=x_val - 0.5, linestyle='--')
         '''
         ###############################
         # save the plots
         plot_file = os.path.dirname(intersection_coords) + '\\longitudinal_profile.png'
         plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.1)
-        plt.close()
         logging.info('Saved longitudinal profile plot: %s' % plot_file)
 
     # delete intermediate files
@@ -295,54 +285,14 @@ def detrend_DEM(fit_table, DEM):
     logging.info('OK')
 
     logging.info('Saved detrended DEM: %s' % detrended_DEM)
-    return str(detrended_DEM)
-
-
-def channel_buffer(centerline, buffer_size=50):
-    '''Creates a buffer polygon around the centerline.
-        buffer_size specifies distance around centerline to make polygon'''
-    outdir = os.path.dirname(centerline) + '/'
-    check_use([centerline,
-               outdir + 'channel_buffer.shp'
-               ])
-    logging.info('Creating buffer...')
-    polygon = arcpy.Buffer_analysis(centerline,
-                                    outdir + 'channel_buffer.shp',
-                                    buffer_size
-                                    )
-    logging.info('OK')
-    return str(polygon)
-
-
-def clip_raster(raster, polygon):
-    '''Clips raster to extent of polygon'''
-    outdir = os.path.dirname(raster) + '/'
-    out_name = 'clipped_' + os.path.basename(raster)
-    check_use([raster,
-               polygon,
-               outdir + out_name
-               ])
-    logging.info('Clipping raster...')
-    clipped_raster = arcpy.Clip_management(raster,
-                                           '#',
-                                           outdir + out_name,
-                                           polygon,
-                                           '0',
-                                           'ClippingGeometry'
-                                           )
-    logging.info('OK')
-    return clipped_raster
 
 
 @err_info
 @spatial_license
-def main_det(DEM, centerline, station_lines, slope_break_indices=[], regression='linear'):
+def main_det(DEM, centerline, station_lines, slope_breaks=[], regression='linear'):
     xyz_table = station_coords(centerline, station_lines, DEM)
-    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices=slope_break_indices, regression=regression, make_plot=True)
-    det = detrend_DEM(xyz_fit_table, DEM)
-    # det = clip_raster(det, channel_shp)
-
-    return det
+    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_breaks=slope_breaks, regression=regression, make_plot=True)
+    detrend_DEM(xyz_fit_table, DEM)
 
 
 #######################################
@@ -356,8 +306,6 @@ if __name__ == '__main__':
     init_logger(__file__)
 
     xyz_table = station_coords(centerline, station_lines, DEM)
-    # xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices=[556], regression='linear', make_plot=True)
-    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_break_indices=[], regression='quadratic', make_plot=True)
+    # xyz_fit_table = trend_fit(xyz_table, station_lines, slope_breaks=[556], regression='linear', make_plot=True)
+    xyz_fit_table = trend_fit(xyz_table, station_lines, slope_breaks=[], regression='quadratic', make_plot=True)
     detrended_DEM = detrend_DEM(xyz_fit_table, DEM)
-    # buff = channel_buffer(centerline, buffer_size = 50)
-    # clipped_detrended_DEM = clip_raster(detrended_DEM, buff)
