@@ -362,82 +362,113 @@ def landform_nesting(data):
     return output
 
 
-def GCS_plots(data):
+def GCS_plots(data, odir=''):
     '''Returns list of plots for Z_s, W_s at each flow, and C(Z_s,W_s) at each flow'''
 
     flow_names = sorted(data.keys())
-
     output = []
 
     # Z_s plot for each flow
-
     for flow in flow_names:
         dist = data[flow]['All']['dist_down'].tolist()
         zs = data[flow]['All']['Z_s'].tolist()
-
         fig = plt.figure()
         plt.title(r'$Z_s$' + ' %s' % flow.replace('pt', '.').replace('cms', ' cms'))
         plt.xlabel('Distance downstream (m)')
         plt.ylabel('$Z_s$')
         plt.grid()
         plt.plot(dist, zs)
-        fig.savefig('Zs %s.png' % flow.replace('pt', '.').replace('cms', ' cms'))
+        fig.savefig(odir + 'Zs %s.png' % flow.replace('pt', '.').replace('cms', ' cms'), bbox_inches='tight', pad_inches=0.1)
         output.append(fig)
         plt.close(fig)
 
     # Z_s plot for all flows
-
+    fig, ax = plt.subplots(1, 1, figsize=(24, 12))
+    ax.set_title(r'$Z_s$')
+    ax.set_xlabel('Distance downstream (m)')
+    ax.set_ylabel(r'$Z_s (\sigma)$')
+    for flow in flow_names:
+        dist = data[flow]['All']['dist_down'].tolist()
+        zs = data[flow]['All']['Z_s'].tolist()
+        ax.plot(dist, zs, label=flow.replace('pt', '.').replace('cms', ' cms'))
+        ax.set_xlim(dist[0], dist[-1])
+    ax.legend()
+    ax.grid()
+    fig.savefig(odir + 'Zs_all_discharges.png', bbox_inches='tight', pad_inches=0.1)
+    output.append(fig)
+    plt.close(fig)
 
     # W_s plot for each flow
-
     for flow in flow_names:
         dist = data[flow]['All']['dist_down'].tolist()
         zs = data[flow]['All']['W_s'].tolist()
-
         fig = plt.figure()
         plt.title(r'$W_s$' + ' %s' % flow.replace('pt', '.').replace('cms', ' cms'))
         plt.xlabel('Distance downstream (m)')
         plt.ylabel(r'$W_s$')
         plt.grid()
         plt.plot(dist, zs)
-        fig.savefig('Ws %s.png' % flow.replace('pt', '.').replace('cms', ' cms'))
+        fig.savefig(odir + 'Ws %s.png' % flow.replace('pt', '.').replace('cms', ' cms'), bbox_inches='tight', pad_inches=0.1)
         output.append(fig)
         plt.close(fig)
 
-    #W_s plot for all flows
-
+    # W_s plot for all flows
+    fig, ax = plt.subplots(1, 1, figsize=(24, 12))
+    ax.set_title(r'$W_s$')
+    ax.set_xlabel('Distance downstream (m)')
+    ax.set_ylabel(r'$W_s (\sigma)$')
+    for flow in flow_names:
+        dist = data[flow]['All']['dist_down'].tolist()
+        ws = data[flow]['All']['W_s'].tolist()
+        ax.plot(dist, ws, label=flow.replace('pt', '.').replace('cms', ' cms'))
+        ax.set_xlim(dist[0], dist[-1])
+    ax.legend()
+    ax.grid()
+    fig.savefig(odir + 'Ws_all_discharges.png', bbox_inches='tight', pad_inches=0.1)
+    output.append(fig)
+    plt.close(fig)
 
     # GCS for all flows
-
     fig = plt.figure()
     plt.title(r'$C(Z_s, W_s)$')
     plt.xlabel('Distance downstream (m)')
     plt.ylabel(r'$Z_s \cdot W_s$')
     plt.grid()
-
     for flow in flow_names:
         dist = data[flow]['All']['dist_down'].tolist()
         czw = data[flow]['All']['Z_s_W_s'].tolist()
         plt.plot(dist, czw, label=flow.replace('pt', '.').replace('cms', ' cms'))
-
     plt.legend()
-    fig.savefig('Czw.png')
+    fig.savefig(odir + 'Czw.png', bbox_inches='tight', pad_inches=0.1)
     output.append(fig)
     plt.close(fig)
 
     # Z_s, W_s, GCS in one plot for each flow
+    for flow in flow_names:
+        dist = data[flow]['All']['dist_down'].tolist()
+        zs = data[flow]['All']['Z_s'].tolist()
+        ws = data[flow]['All']['W_s'].tolist()
+        czw = data[flow]['All']['Z_s_W_s'].tolist()
+        fig, ax = plt.subplots(1, 1, figsize=(24, 12))
+        ax.set_title(flow.replace('pt', '.').replace('cms', ' cms'))
+        ax.plot(dist, zs, label=r'$Z_s$')
+        ax.plot(dist, ws, label=r'$W_s$')
+        ax.plot(dist, czw, label=r'$C(Z_s, W_s)$')
+        ax.legend()
+        ax.grid()
+        ax.set_xlabel('Distance downstream (m)')
+        fig.savefig(odir + 'Czw_%s.png' % flow, bbox_inches='tight', pad_inches=0.1)
+        output.append(fig)
+        plt.close(fig)
 
 
     # GCS plot for each flow (points colored by landform type)
-
     color_code = {-2: 'black', -1: 'blue', 0: 'grey', 1: 'orange', 2: 'red'}
     code_dict = {-2: 'O', -1: 'CP', 0: 'NC', 1: 'WB', 2: 'NZ'}
-
     for flow in flow_names:
         dist = data[flow]['All']['dist_down'].tolist()
         czw = data[flow]['All']['Z_s_W_s'].tolist()
         code = data[flow]['All']['code'].tolist()
-
         fig = plt.figure()
         plt.title(r'$C(Z_s, W_s)$' + ' %s' % flow.replace('pt', '.').replace('cms', ' cms'))
         plt.xlabel('Distance downstream (m)')
@@ -447,12 +478,11 @@ def GCS_plots(data):
         legend_elements = [Line2D([0], [0], marker='o', color='w', label=mu, markerfacecolor=color, markeredgecolor='none', markersize=10)
                            for color, mu in [[color_code[x], code_dict[x]] for x in code_dict.keys()]]
         plt.legend(handles=legend_elements, ncol=5)
-        fig.savefig('Czw landforms %s.png' % flow)
+        fig.savefig(odir + 'Czw landforms %s.png' % flow, bbox_inches='tight', pad_inches=0.1)
         output.append(fig)
         plt.close(fig)
 
     # Fourier transform of GCS at each flow
-
     fig = plt.figure()
     plt.title(r'$\hat{f}(Czw)$')
     plt.xlabel('Frequency' + r'$(m^{-1})$')
@@ -463,7 +493,7 @@ def GCS_plots(data):
         xf, yf = ft(x, y)
         plt.semilogx(xf, yf, label=flow.replace('pt', '.').replace('cms', ' cms'))
     plt.legend()
-    fig.savefig('GCSFourier.png')
+    fig.savefig(odir + 'GCSFourier.png', bbox_inches='tight', pad_inches=0.1)
     output.append(fig)
     plt.close(fig)
 
@@ -479,13 +509,11 @@ def GCS_plots(data):
         xf, yf = ft(x, y)
         plt.semilogx(xf, yf, label=flow.replace('pt', '.').replace('cms', ' cms'))
     plt.legend()
-    fig.savefig('WsFourier.png')
+    fig.savefig(odir + 'WsFourier.png', bbox_inches='tight', pad_inches=0.1)
     output.append(fig)
     plt.close(fig)
 
-
     # Fourier transform of Zs at each flow
-
     fig = plt.figure()
     plt.title(r'$\hat{f}(Zs)$')
     plt.xlabel('Frequency' + r'$(m^{-1})$')
@@ -496,26 +524,35 @@ def GCS_plots(data):
         xf, yf = ft(x, y)
         plt.semilogx(xf, yf, label=flow.replace('pt', '.').replace('cms', ' cms'))
     plt.legend()
-    fig.savefig('ZsFourier.png')
+    fig.savefig(odir + 'ZsFourier.png', bbox_inches='tight', pad_inches=0.1)
     output.append(fig)
     plt.close(fig)
 
-    # GCS autocorrelation at each flow
-    fig = plt.figure()
-    plt.title('Autocorrelation')
-    plt.xlabel('Lag')
-    plt.grid()
-    for flow in flow_names:
-        # x = data[flow]['All']['dist_down'].tolist()
-        gcs = data[flow]['All']['Z_s_W_s'].tolist()
-        plt.acorr(gcs, usevlines=True, normed=True, label=flow.replace('pt', '.').replace('cms', ' cms'), maxlags=None)
-    plt.legend()
-    plt.savefig('%sGCSacorr.png' % flow)
-    output.append(fig)
-    plt.close(fig)
+    # Autocorrelations
+    fig, ax = plt.subplots(4, 3, sharex=True, sharey=True, figsize=(24, 12))
+    for i, flow in enumerate(flow_names):
+        W_s = data[flow]['All']['W_s']
+        Z_s = data[flow]['All']['Z_s']
+        Czw = data[flow]['All']['Z_s_W_s']
 
-    # GCS cross-correlation between flows
-    # 2D Fourier transform for Ws and Zs at each flow
+        ax[0][i].acorr(W_s, maxlags=None)
+        ax[0][i].set_ylabel('Ws Autocorrelation')
+        ax[1][i].acorr(Z_s, maxlags=None)
+        ax[1][i].set_ylabel('Zs Autocorrelation')
+        ax[2][i].acorr(Czw, maxlags=None)
+        ax[2][i].set_ylabel('Czw Autocorrelation')
+        ax[3][i].xcorr(W_s, Z_s, maxlags=None)
+        ax[3][i].set_ylabel('Ws, Zs Cross-Correlation')
+        ax[0][i].set_title(flow.replace('pt', '.').replace('cms', ' cms'))
+        ax[3][i].set_xlabel('Lag (x 3m)')
+        ax[0][i].grid()
+        ax[1][i].grid()
+        ax[2][i].grid()
+        ax[3][i].grid()
+    fig.savefig(odir + 'Acorrs.png', bbox_inches='tight', pad_inches=0.1)
+
+    # GCS cross-correlation between flows?
+
     # power spectral density
 
     return output
@@ -548,7 +585,7 @@ def clean_in_data(tables, reach_breaks=None):
         flow_name = os.path.basename(table)
         try:
             flow_name = os.path.basename(table).split('_')[0]
-            logging.info('Using %s as flow name for %s'%(flow_name,table))
+            logging.info('Using %s as flow name for %s'%(flow_name, table))
         except:
             pass
 
@@ -603,6 +640,9 @@ def clean_in_data(tables, reach_breaks=None):
 
 def complete_analysis(tables, reach_breaks=None):
     '''Executes various analyses'''
+    odir = os.path.dirname(__file__)+'\\results\\'
+    if os.path.isdir(odir) == False:
+        os.mkdir(odir)
 
     logging.info('Cleaning input data...')
     data = clean_in_data(tables, reach_breaks=reach_breaks)
@@ -653,7 +693,7 @@ def complete_analysis(tables, reach_breaks=None):
     logging.info('Writing outputs to files...')
 
     # save tables to excel files/sheets
-    writer = pd.ExcelWriter('GCS_output_data.xlsx', engine='xlsxwriter')
+    writer = pd.ExcelWriter(odir + 'GCS_output_data.xlsx', engine='xlsxwriter')
 
     for df_list in [czw_corrs, ww_test_z, ww_test_w, landform_percents, follows, follows_no_nc]:
         for df in df_list:
@@ -673,8 +713,9 @@ def complete_analysis(tables, reach_breaks=None):
     # save images of plots
 
     logging.info('Making plots...')
-    plots = GCS_plots(data)
+    plots = GCS_plots(data, odir=odir)
     logging.info('OK')
+    logging.info('Finished. Results in: %s' % odir)
 
     return data
 
