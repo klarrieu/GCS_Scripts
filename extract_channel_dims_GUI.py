@@ -12,27 +12,27 @@ arcpy.env.overwriteOutput = True
 
 @err_info
 @spatial_license
-def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buffer_size='', rm_up_length=0, rm_down_length=0, reach_breaks=''):
+def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buffer_size='', rm_up_length=0, rm_down_length=0, reach_breaks=''):
     '''Creates wetted polygon XSs for each wetted polygon, then extracts W,Z and other attributes
 
     Args:
         station_lines: shapefile containing station XS lines
         detrended_DEM: the detrended DEM raster
-        wetted_polygons_list: a list containing wetted polygon filenames
+        wetted_rasters_list: a list containing wetted polygon/raster filenames
         buffer_size: size of rectangular buffer around each XS. Default is 1/2 XS spacing
     
     Returns:
         polygon_XS: 
-        table for each wetted polygon containing width, detrended bed elevation, *reach number
+        table for each wetted polygon containing width, detrended bed elevation, mean velocity, *reach number
     '''
 
-    check_use([station_lines, detrended_DEM] + wetted_polygons_list)
+    check_use([station_lines, detrended_DEM] + wetted_rasters_list)
     check_use(str(station_lines).replace('.shp', '_buffered.shp'))
-    check_use([name.replace('.shp', '_XS.shp') for name in wetted_polygons_list])
-    check_use([name.replace('.shp', '_XS_z_table.dbf') for name in wetted_polygons_list])
-    check_use([name.replace('.shp', '_XS_z_table.xls') for name in wetted_polygons_list])
-    check_use([name.replace('.shp', '_XS_attribute_table.xls') for name in wetted_polygons_list])
-    check_use([name.replace('.shp', '_XS_joined_table.csv') for name in wetted_polygons_list])
+    check_use([name.replace('.shp', '_XS.shp') for name in wetted_rasters_list])
+    check_use([name.replace('.shp', '_XS_z_table.dbf') for name in wetted_rasters_list])
+    check_use([name.replace('.shp', '_XS_z_table.xls') for name in wetted_rasters_list])
+    check_use([name.replace('.shp', '_XS_attribute_table.xls') for name in wetted_rasters_list])
+    check_use([name.replace('.shp', '_XS_joined_table.csv') for name in wetted_rasters_list])
 
     tables = []
 
@@ -64,12 +64,12 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
                                      line_end_type='FLAT'
                                      )
         logging.info('OK')
-        for wetted_polygon in wetted_polygons_list:
+        for wetted_raster in wetted_rasters_list:
 
             # if given an .flt raster (e.g. from Tuflow output), convert it to a polygon
-            if wetted_polygon.endswith('.flt'):
-                logging.info('Converting flt to polygon: %s' % wetted_polygon)
-                wetted_polygon = flt_to_poly(wetted_polygon)
+            if wetted_raster.endswith('.flt'):
+                logging.info('Converting flt to polygon: %s' % wetted_raster)
+                wetted_polygon = flt_to_poly(wetted_raster)
                 logging.info('OK')
             # clip rectangles to extent of each wetted polygon
             logging.info('Clipping XSs to wetted area...')
@@ -145,6 +145,29 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
                                     'outer'
                                     )
 
+            # if given velocity rasters, let's calculate mean XS velocities bud
+            logging.info('Getting mean cross-section velocities...')
+            v_table = arcpy.sa.ZonalStatisticsAsTable(xs,
+                                                      'FID',
+                                                      wetted_raster,
+                                                      str(xs).replace('.shp', '_v_table.dbf'),
+                                                      statistics_type='MEAN'
+                                                      )
+            v_table = arcpy.TableToExcel_conversion(v_table,
+                                                    str(v_table).replace('.dbf', '.xls')
+                                                    )
+
+
+            # join attribute and z joined table to v table on FID
+            v_df = pd.read_excel(str(v_table))
+            v_df = v_df.rename(columns={'MEAN': 'V'})
+            joined_df = joined_df.join(v_df,
+                                    'FID',
+                                    'outer'
+                                    )
+            logging.info('OK')
+
+
             # sort the table so data is longitudinally sequential
             if 'dist_down' in joined_df.columns.tolist():
                 joined_df = joined_df.sort_values(by=['dist_down'])
@@ -167,9 +190,13 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
 
             tables.append(out_table)
 
+            # delete intermediate files
+
+
     except Exception, e:
         logging.exception(e)
         raise Exception(e)
+
 
     logging.info('OK')
     logging.info('Finished.')
@@ -251,7 +278,7 @@ if __name__ == '__main__':
     b = Button(root, text='   Run    ',
                command=lambda: extract_channel_data(station_lines=E1.get(),
                                                     detrended_DEM=E2.get(),
-                                                    wetted_polygons_list=list(root.tk.splitlist(E3.get())),
+                                                    wetted_rasters_list=list(root.tk.splitlist(E3.get())),
                                                     buffer_size=E4.get(),
                                                     rm_up_length=float(E5.get()),
                                                     rm_down_length=float(E6.get()),

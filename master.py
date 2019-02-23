@@ -417,7 +417,7 @@ class GCS_GUI(tk.Frame):
                                        )
         self.b_ec_det_dem.grid(sticky=W, row=1, column=3)
 
-        self.l_ec_wetted_polys = ttk.Label(root, text='Wetted Polygons:')
+        self.l_ec_wetted_polys = ttk.Label(root, text='Wetted Polygons/Velocity Rasters:')
         self.l_ec_wetted_polys.grid(sticky=E, row=2, column=1)
         self.e_ec_wetted_polys = ttk.Entry(root)
         self.e_ec_wetted_polys.grid(row=2, column=2)
@@ -455,7 +455,7 @@ class GCS_GUI(tk.Frame):
         self.b_ec_run = ttk.Button(root, text='   Run    ',
                                    command=lambda: ec.extract_channel_data(station_lines=self.e_ec_station_lines.get(),
                                                                            detrended_DEM=self.e_ec_det_dem.get(),
-                                                                           wetted_polygons_list=list(root.tk.splitlist(self.e_ec_wetted_polys.get())),
+                                                                           wetted_rasters_list=list(root.tk.splitlist(self.e_ec_wetted_polys.get())),
                                                                            buffer_size=self.e_xs_buffer.get(),
                                                                            rm_up_length=float(self.e_rm_up_length.get()),
                                                                            rm_down_length=float(self.e_rm_down_length.get()),
