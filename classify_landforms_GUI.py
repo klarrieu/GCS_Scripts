@@ -74,10 +74,10 @@ def landforms(table, zs_field='Z_s', ws_field='W_s', na=-9999):
 
     df['code'] = [-2 if df['oversized'][i] != na
                   else -1 if df['const_pool'][i] != na
-    else 0 if df['normal'][i] != na
-    else 1 if df['wide_bar'][i] != na
-    else 2 if df['nozzle'][i] != na
-    else na
+                  else 0 if df['normal'][i] != na
+                  else 1 if df['wide_bar'][i] != na
+                  else 2 if df['nozzle'][i] != na
+                  else na
                   for i in range(len(df))
                   ]
 
