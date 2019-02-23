@@ -31,7 +31,7 @@ This tool produces a set of evenly spaced cross-sectional lines perpendicular to
 
 ### 4. Detrend DEM
 
-This tool creates a detrended DEM via linear regression on the river channel's longitudinal profile. Detrending can be split into multiple regressions by reach.
+This tool creates a detrended DEM via linear or quadratic regression on the river channel's longitudinal profile. Detrending can be split into multiple regressions by reach.
 
 ### 5. Extract GCS Data
 
