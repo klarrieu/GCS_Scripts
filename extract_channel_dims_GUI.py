@@ -12,7 +12,8 @@ arcpy.env.overwriteOutput = True
 
 @err_info
 @spatial_license
-def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buffer_size='', rm_up_length=0, rm_down_length=0, reach_breaks=''):
+def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buffer_size='', rm_up_length=0,
+                         rm_down_length=0, reach_breaks=''):
     '''Creates wetted polygon XSs for each wetted polygon, then extracts W,Z and other attributes
 
     Args:
@@ -42,7 +43,7 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buff
 
         # get spacing from station lines
         rows = []
-        with arcpy.da.UpdateCursor(station_lines, ['ET_STATION']) as cursor:
+        with arcpy.da.UpdateCursor(station_lines, ['dist_down']) as cursor:
             while len(rows) < 2:
                 for row in cursor:
                     rows.append(row[0])
@@ -97,7 +98,7 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buff
                 def get_reach(dist_down):
                     return 1
                 ''')
-            logging.info('Calculating fields...')
+            logging.info('Calculating cross-section averaged widths...')
             arcpy.CalculateField_management(xs, 'Reach',
                                             'get_reach(!dist_down!)',
                                             'PYTHON',
@@ -116,36 +117,21 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buff
                                             '!POLY_AREA!*1.0/(2*%f)' % buffer_size,
                                             'PYTHON'
                                             )
-
+            logging.info('OK')
             # make table of detrended DEM stats for each xs
+            logging.info('Calculating cross-section averaged detrended bed elevations...')
             z_table = arcpy.sa.ZonalStatisticsAsTable(xs,
                                                       'FID',
                                                       detrended_DEM,
                                                       str(xs).replace('.shp', '_z_table.dbf'),
                                                       statistics_type='MEAN'
                                                       )
-            logging.info('OK')
             # convert z_table from dbf to xls
-            logging.info('Exporting attributes to spreadsheet...')
             z_table = arcpy.TableToExcel_conversion(z_table,
                                                     str(z_table).replace('.dbf', '.xls')
                                                     )
 
-            # export attribute table for analysis
-            att_table = arcpy.TableToExcel_conversion(xs,
-                                                      str(xs).replace('.shp', '_attribute_table.xls')
-                                                      )
-
-            # join attribute and z tables on FID
-            att_df = pd.read_excel(str(att_table))
-            z_df = pd.read_excel(str(z_table))
-            z_df = z_df.rename(columns={'MEAN': 'Z'})
-            joined_df = att_df.join(z_df,
-                                    'FID',
-                                    'outer'
-                                    )
-
-            # if given velocity rasters, let's calculate mean XS velocities bud
+            # granted we're given velocity rasters, let's calculate mean XS velocities bud
             logging.info('Getting mean cross-section velocities...')
             v_table = arcpy.sa.ZonalStatisticsAsTable(xs,
                                                       'FID',
@@ -156,30 +142,44 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buff
             v_table = arcpy.TableToExcel_conversion(v_table,
                                                     str(v_table).replace('.dbf', '.xls')
                                                     )
-
-
-            # join attribute and z joined table to v table on FID
-            v_df = pd.read_excel(str(v_table))
-            v_df = v_df.rename(columns={'MEAN': 'V'})
-            joined_df = joined_df.join(v_df,
-                                    'FID',
-                                    'outer'
-                                    )
             logging.info('OK')
 
+            # export attribute table for analysis
+            logging.info('Exporting attributes to spreadsheet...')
+            att_table = arcpy.TableToExcel_conversion(xs,
+                                                      str(xs).replace('.shp', '_attribute_table.xls')
+                                                      )
+
+            # join attribute and z tables on FID
+            att_df = pd.read_excel(str(att_table))
+            z_df = pd.read_excel(str(z_table))
+            z_df = z_df.rename(columns={'MEAN': 'Z'})
+            joined_df = att_df.merge(z_df,
+                                     'outer',
+                                     left_on='FID',
+                                     right_on='FID_'
+                                     )
+
+            # join attributes and z joined table to v table on FID
+            v_df = pd.read_excel(str(v_table))
+            v_df = v_df.rename(columns={'MEAN': 'V'})
+            # dropping these columns because they will be re-added by next join
+            # this also guarantees areas are at velocity raster resolution instead of DEM resolution
+            joined_df = joined_df.drop(['OID', 'COUNT', 'AREA'], axis=1)
+            joined_df = joined_df.merge(v_df,
+                                        'outer',
+                                        left_on='FID',
+                                        right_on='FID_'
+                                        )
+            logging.info('OK')
 
             # sort the table so data is longitudinally sequential
             if 'dist_down' in joined_df.columns.tolist():
                 joined_df = joined_df.sort_values(by=['dist_down'])
                 joined_df = joined_df[(joined_df['dist_down'] >= rm_up_length)]
                 joined_df = joined_df[joined_df['dist_down'] <= (joined_df['dist_down'].tolist()[-1] - rm_down_length)]
-            elif 'ET_STATION' in joined_df.columns.tolist():
-                joined_df = joined_df.sort_values(by=['ET_STATION'])
-                joined_df = joined_df[(joined_df['ET_STATION'] >= rm_up_length)]
-                joined_df = joined_df[joined_df['ET_STATION'] <= (joined_df['ET_STATION'].tolist()[-1] - rm_down_length)]
             else:
-                logging.warning(
-                    'No station lines attribute field named dist_down or ET_STATION: sorting by original FID for station lines. Ensure output data is longitudinally sequential.')
+                logging.warning('No station lines attribute field named dist_down: sorting by original FID for station lines. Ensure output data is longitudinally sequential.')
                 if rm_up_length != 0 or rm_down_length != 0:
                     logging.warning('Cannot remove up/downstream sections.')
                 joined_df = joined_df.sort_values(by=['ORIG_FID'])
@@ -191,12 +191,16 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buff
             tables.append(out_table)
 
             # delete intermediate files
-
+            logging.info('Deleting intermediate files...')
+            del_suffixes = ['_z_table.dbf', '_v_table.dbf', '_z_table.xls', '_v_table.xls', '_attribute_table.xls']
+            del_files = [str(xs).replace('.shp', suffix) for suffix in del_suffixes]
+            for f in del_files:
+                arcpy.Delete_management(f)
+            logging.info('OK')
 
     except Exception, e:
         logging.exception(e)
         raise Exception(e)
-
 
     logging.info('OK')
     logging.info('Finished.')

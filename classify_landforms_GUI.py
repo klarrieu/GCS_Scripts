@@ -10,12 +10,12 @@ from Tkinter import *
 import logging
 
 
-def clean_in_table(table, w_field='Width', z_field='MEAN', dist_field='ET_STATION'):
+def clean_in_table(table, w_field='Width', z_field='Z', v_field='V', dist_field='dist_down'):
     '''Renames columns corresponding to W, Z, and dist_down, if they are not already columns'''
     check_use(table)
     df = pd.read_csv(table)
 
-    for old_name, replacement_name in [(w_field, 'W'), (z_field, 'Z'), (dist_field, 'dist_down')]:
+    for old_name, replacement_name in [(w_field, 'W'), (z_field, 'Z'), (v_field, 'V'), (dist_field, 'dist_down')]:
         if replacement_name not in df.columns.tolist():
             if old_name in df.columns.tolist():
                 df.rename(columns={old_name: replacement_name})
@@ -141,10 +141,8 @@ def GCS_plot(table, units='m'):
 
     if 'dist_down' in df.columns.tolist():
         x = df.dist_down.tolist()
-    elif 'ET_STATION' in df.columns.tolist():
-        x = df.ET_STATION.tolist()
     else:
-        logging.warning('No column named dist_down or ET_STATION. Plotting with index along x axis.')
+        logging.warning('No column named dist_down. Plotting with index along x axis.')
         x = df.index.tolist()
 
     try:
