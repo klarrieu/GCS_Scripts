@@ -530,30 +530,37 @@ def GCS_plots(data, odir=''):
 
     # Autocorrelations
     fig, ax = plt.subplots(4, 3, sharex=True, sharey=True, figsize=(24, 12))
-    for i, flow in enumerate(flow_names):
+    for i, flow in enumerate(flow_names[:3]):
         W_s = data[flow]['All']['W_s']
         Z_s = data[flow]['All']['Z_s']
         Czw = data[flow]['All']['Z_s_W_s']
+        dist_down = data[flow]['All']['dist_down']
+        spacing = abs(dist_down[1] - dist_down[0])
+        max_lags = int(len(dist_down)/2)
 
-        ax[0][i].acorr(W_s, maxlags=None)
+        ax[0][i].acorr(W_s, maxlags=max_lags)
         ax[0][i].set_ylabel('Ws Autocorrelation')
-        ax[1][i].acorr(Z_s, maxlags=None)
+        ax[1][i].acorr(Z_s, maxlags=max_lags)
         ax[1][i].set_ylabel('Zs Autocorrelation')
-        ax[2][i].acorr(Czw, maxlags=None)
+        ax[2][i].acorr(Czw, maxlags=max_lags)
         ax[2][i].set_ylabel('Czw Autocorrelation')
-        ax[3][i].xcorr(W_s, Z_s, maxlags=None)
+        ax[3][i].xcorr(W_s, Z_s, maxlags=max_lags)
         ax[3][i].set_ylabel('Ws, Zs Cross-Correlation')
         ax[0][i].set_title(flow.replace('pt', '.').replace('cms', ' cms'))
-        ax[3][i].set_xlabel('Lag (x 3m)')
-        ax[0][i].grid()
-        ax[1][i].grid()
-        ax[2][i].grid()
-        ax[3][i].grid()
+        ax[3][i].set_xlabel('Lag (m)')
+        for j in range(4):
+            ax[j][i].grid()
+            ax[j][i].set_xlim(-max_lags, max_lags)
+            ticks = map(int, ax[j][i].get_xticks() * spacing)
+            ax[j][i].set_xticklabels(ticks)
     fig.savefig(odir + 'Acorrs.png', bbox_inches='tight', pad_inches=0.1)
 
     # GCS cross-correlation between flows?
 
     # power spectral density
+
+    # quadrant histogram/ MU histogram?
+
 
     return output
 
@@ -687,7 +694,10 @@ def complete_analysis(tables, reach_breaks=None):
     logging.info('OK')
 
     logging.info('Determining nested landform abundance...')
-    nests = landform_nesting(data)
+    if len(data.keys()) == 3:
+        nests = landform_nesting(data)
+    else:
+        nests = landform_nesting({col: data[col] for col in data.keys() if col in data.keys()[:3]})
     logging.info('OK')
 
     logging.info('Writing outputs to files...')
