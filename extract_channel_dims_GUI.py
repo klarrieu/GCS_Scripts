@@ -1,4 +1,5 @@
 import arcpy
+import arcpy.sa
 from arcpy import env
 import os
 from file_functions import *
@@ -7,7 +8,7 @@ import pandas as pd
 import logging
 
 arcpy.env.overwriteOutput = True
-arcpy.CheckOutExtension('Spatial')
+
 
 @err_info
 @spatial_license
@@ -56,38 +57,47 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
 
     # create rectangular buffer around station lines
     try:
+        logging.info('Buffering XS lines...')
         buff = arcpy.Buffer_analysis(station_lines,
                                      str(station_lines).replace('.shp', '_buffered.shp'),
                                      buffer_size,
                                      line_end_type='FLAT'
                                      )
-
+        logging.info('OK')
         for wetted_polygon in wetted_polygons_list:
 
             # if given an .flt raster (e.g. from Tuflow output), convert it to a polygon
             if wetted_polygon.endswith('.flt'):
                 logging.info('Converting flt to polygon: %s' % wetted_polygon)
                 wetted_polygon = flt_to_poly(wetted_polygon)
-
+                logging.info('OK')
             # clip rectangles to extent of each wetted polygon
+            logging.info('Clipping XSs to wetted area...')
             xs = arcpy.Clip_analysis(buff,
                                      wetted_polygon,
                                      str(wetted_polygon).replace('.shp', '_XS.shp')
                                      )
-
+            logging.info('OK')
             # add reach number attribute (all 1 if reach_breaks='') (short integer type)
-            arcpy.AddField_management(xs, 'Reach', 'SHORT')
-            codeblock = textwrap.dedent('''
-            def get_reach(dist_down):
-                reach_num = 1
-                for brk in %s:
-                    if dist_down < brk:
-                        return reach_num
-                    else:
-                        reach_num+=1
-                return reach_num
-            ''' % reach_breaks)
 
+            arcpy.AddField_management(xs, 'Reach', 'SHORT')
+            if reach_breaks != '':
+                codeblock = textwrap.dedent('''
+                def get_reach(dist_down):
+                    reach_num = 1
+                    for brk in %s:
+                        if dist_down < brk:
+                            return reach_num
+                        else:
+                            reach_num+=1
+                    return reach_num
+                ''' % reach_breaks)
+            else:
+                codeblock = textwrap.dedent('''
+                def get_reach(dist_down):
+                    return 1
+                ''')
+            logging.info('Calculating fields...')
             arcpy.CalculateField_management(xs, 'Reach',
                                             'get_reach(!dist_down!)',
                                             'PYTHON',
@@ -114,7 +124,9 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_polygons_list, buf
                                                       str(xs).replace('.shp', '_z_table.dbf'),
                                                       statistics_type='MEAN'
                                                       )
+            logging.info('OK')
             # convert z_table from dbf to xls
+            logging.info('Exporting attributes to spreadsheet...')
             z_table = arcpy.TableToExcel_conversion(z_table,
                                                     str(z_table).replace('.dbf', '.xls')
                                                     )
@@ -250,5 +262,3 @@ if __name__ == '__main__':
     root.grid_rowconfigure(12, minsize=80)
 
     root.mainloop()
-
-arcpy.CheckInExtension('Spatial')
