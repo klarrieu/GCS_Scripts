@@ -493,16 +493,23 @@ class GCS_GUI(tk.Frame):
         self.e_var2_field.insert(END, 'Z')
         self.e_var2_field.grid(row=2, column=2)
 
+        self.l_var3_field = ttk.Label(root, text='Velocity Field:')
+        self.l_var3_field.grid(sticky=E, row=3, column=1)
+        self.e_var3_field = ttk.Entry(root)
+        self.e_var3_field.insert(END, 'V')
+        self.e_var3_field.grid(row=3, column=2)
+
         self.l_dist_down_field = ttk.Label(root, text='Distance Downstream Field:')
-        self.l_dist_down_field.grid(sticky=E, row=3, column=1)
+        self.l_dist_down_field.grid(sticky=E, row=4, column=1)
         self.e_dist_down_field = ttk.Entry(root)
         self.e_dist_down_field.insert(END, 'dist_down')
-        self.e_dist_down_field.grid(row=3, column=2)
+        self.e_dist_down_field.grid(row=4, column=2)
 
         self.b_cl_run = ttk.Button(root, text='   Run    ',
                                    command=lambda: cl.main_classify_landforms(tables=list(root.tk.splitlist(self.e_cl_xs_attributes.get())),
                                                                               w_field=self.e_var1_field.get(),
                                                                               z_field=self.e_var2_field.get(),
+                                                                              v_field=self.e_var3_field.get(),
                                                                               dist_field=self.e_dist_down_field.get()
                                                                               )
                                    )

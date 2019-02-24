@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+import itertools
 from Tkinter import *
 from tkMessageBox import showerror
 import tkFileDialog

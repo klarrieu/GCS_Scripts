@@ -28,28 +28,28 @@ def clean_in_table(table, w_field='Width', z_field='Z', v_field='V', dist_field=
     return df
 
 
-def standardize(table, field=['Z', 'W']):
+def standardize(table, fields):
     '''Makes standardized version of field in csv table by subtracting each value by mean and dividing by standard deviation.'''
     check_use(table)
     df = pd.read_csv(table)
 
-    if type(field) == list:
-        for f in field:
+    if type(fields) == list:
+        for f in fields:
             df = standardize(table, f)
         return df
 
-    new_field = field + '_s'
-    df[new_field] = (df[field] - np.mean(df[field])) * 1.0 / np.std(df[field])
+    new_field = fields + '_s'
+    df[new_field] = (df[fields] - np.mean(df[fields])) * 1.0 / np.std(df[fields])
     df.to_csv(table, index=False)
 
     return df
 
 
-def std_covar_series(table, zs_field='Z_s', ws_field='W_s'):
-    '''Computes the covariance series between standardized variables zs_field and ws_field'''
+def std_covar_series(table, field_1, field_2):
+    '''Computes the covariance series between standardized variables field_1 and field_2 (GCS series)'''
     check_use(table)
     df = pd.read_csv(table)
-    df['%s_%s' % (zs_field, ws_field)] = df[zs_field] * df[ws_field]
+    df['%s_%s' % (field_1, field_2)] = df[field_1] * df[field_2]
     df.to_csv(table, index=False)
 
     return df
@@ -134,8 +134,9 @@ def landform_polygons(table, wetted_XS_polygon):
     return df
 
 
+# *** could generalize to do all GCS plots
 def GCS_plot(table, units='m'):
-    '''Takes a table with longitudinally sequential W_s, Z_s, and Z_s_W_s as columns and plots them'''
+    '''Takes a table with longitudinally sequential W_s, Z_s, and W_s_Z_s as columns and plots them'''
     check_use(table)
     df = pd.read_csv(table)
 
@@ -148,10 +149,10 @@ def GCS_plot(table, units='m'):
     try:
         ws = df.W_s.tolist()
         zs = df.Z_s.tolist()
-        zs_ws = df.Z_s_W_s.tolist()
+        zs_ws = df.W_s_Z_s.tolist()
     except Exception, e:
         logging.exception(e)
-        logging.info('Could not find columns Z_s, W_s, and Z_s_W_s with GCS data.')
+        logging.info('Could not find columns Z_s, W_s, and W_s_Z_s with GCS data.')
         raise Exception(e)
 
     fig = plt.figure()
@@ -185,13 +186,14 @@ def GCS_plot(table, units='m'):
 
 
 @err_info
-def main_classify_landforms(tables, w_field, z_field, dist_field, make_plots=False):
+def main_classify_landforms(tables, w_field, z_field, v_field, dist_field, make_plots=False):
     '''Classifies river segments as normal, wide bar, constricted pool, oversized, or nozzle
 
     Args:
         tables: a list of attribute table filenames for each set of wetted polygon rectangular XS's
         w_field: name of the attribute table field corresponding to width
         z_field: name of the attribute table field corresponding to detrended bed elevation
+        v_field: name of the attribute table field corresponding to velocity
         dist_field: name of the attribute table field corresponding to distance downstream
         
     Returns:
@@ -200,33 +202,27 @@ def main_classify_landforms(tables, w_field, z_field, dist_field, make_plots=Fal
             adds these computed values to attribute tables of corresponding wetted polygon rectangular XS's
     '''
     out_polys = []
+    fields = [w_field, z_field, v_field]
+    std_fields = [field + '_s' for field in fields]
+    std_pairs = list(itertools.combinations(std_fields, 2))
+
     for table in tables:
-        clean_in_table(table, w_field=w_field, z_field=z_field, dist_field=dist_field)
-        standardize(table)
-        std_covar_series(table)
+        clean_in_table(table, w_field=w_field, z_field=z_field, v_field=v_field, dist_field=dist_field)
+        standardize(table, fields=fields)
+        for std_pair in std_pairs:
+            std_covar_series(table, std_pair[0], std_pair[1])
         df = landforms(table)
         df = landform_polygons(table, table.replace('_joined_table.csv', '.shp'))
         out_polys.append(table.replace('_joined_table.csv', '.shp'))
         if make_plots == True:
             GCS_plot(table)
+
+    logging.info('Finished.')
+
     return out_polys
 
 
 if __name__ == '__main__':
-    '''
-    #test data
-    tables = [r'G:\Kenny_Rainbow_Basin\DEM\detrending\0_breaks\wetted_polygon_1_XS_rect_joined_table.csv',
-              r'G:\Kenny_Rainbow_Basin\DEM\detrending\0_breaks\wetted_polygon_2_XS_rect_joined_table.csv',
-              r'G:\Kenny_Rainbow_Basin\DEM\detrending\0_breaks\wetted_polygon_3_XS_rect_joined_table.csv',
-              r'G:\Kenny_Rainbow_Basin\DEM\detrending\0_breaks\wetted_polygon_4_XS_rect_joined_table.csv']
-    
-    for table in tables:
-        clean_in_table(table)
-        standardize(table)
-        std_covar_series(table)
-        df = landforms(table)
-        df = landform_polygons(table, table.replace('_joined_table.csv', '.shp') )
-    '''
 
     # initialize logger
     init_logger(__file__)
@@ -260,17 +256,24 @@ if __name__ == '__main__':
     E3.insert(END, 'Z')
     E3.grid(row=2, column=2)
 
-    L4 = Label(root, text='Distance Downstream Field:')
+    L4 = Label(root, text='Velocity Field:')
     L4.grid(sticky=E, row=3, column=1)
     E4 = Entry(root, bd=5)
-    E4.insert(END, 'dist_down')
+    E4.insert(END, 'V')
     E4.grid(row=3, column=2)
+
+    L5 = Label(root, text='Distance Downstream Field:')
+    L5.grid(sticky=E, row=4, column=1)
+    E5 = Entry(root, bd=5)
+    E5.insert(END, 'dist_down')
+    E5.grid(row=4, column=2)
 
     b = Button(root, text='   Run    ',
                command=lambda: main_classify_landforms(tables=list(root.tk.splitlist(E1.get())),
                                                        w_field=E2.get(),
                                                        z_field=E3.get(),
-                                                       dist_field=E4.get()
+                                                       v_field=E4.get(),
+                                                       dist_field=E5.get()
                                                        )
                )
     b.grid(sticky=W, row=9, column=2)

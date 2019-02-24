@@ -202,7 +202,6 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buff
         logging.exception(e)
         raise Exception(e)
 
-    logging.info('OK')
     logging.info('Finished.')
     return tables
 

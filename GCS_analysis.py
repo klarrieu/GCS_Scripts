@@ -7,9 +7,10 @@ from matplotlib.lines import Line2D
 from Tkinter import *
 import logging
 
-def flow_cov_corrs(data):
+
+def flow_cov_corrs(data, field_1, field_2):
     '''
-    Computes binary correlation between C(Z_s,W_s)'s for each pair of flows
+    Computes binary correlation between C(field_1,field_2)'s for each pair of flows
     '''
     output = []
 
@@ -19,116 +20,97 @@ def flow_cov_corrs(data):
     # create dataframes of correlations between flows for each reach
     for reach_name in reach_names:
         # the (titled) dataframe to output for each reach
-        reach_df = DF(index=flow_names, columns=flow_names, title='Corr(Czw_i,Czw_j) %s' % reach_name)
+        field_abbrev = field_1[0].lower() + field_2[0].lower()
+        reach_df = DF(index=flow_names, columns=flow_names, title='Corr(C%s_i,C%s_j) %s' % (field_abbrev, field_abbrev, reach_name))
 
         # loop for rows, loop for columns
         for flow_rkey in flow_names:
             for flow_ckey in flow_names:
                 # covariance series corresponding to flow row
-                czw_r = data[flow_rkey][reach_name]['Z_s_W_s'].tolist()
+                gcs_r = data[flow_rkey][reach_name]['%s_%s' % (field_1, field_2)].tolist()
                 # covariance series corresponding to flow column
-                czw_c = data[flow_ckey][reach_name]['Z_s_W_s'].tolist()
+                gcs_c = data[flow_ckey][reach_name]['%s_%s' % (field_1, field_2)].tolist()
                 # add correlation between the series to dataframe
-                reach_df.loc[flow_rkey, flow_ckey] = np.corrcoef(czw_r, czw_c)[0][1]
+                reach_df.loc[flow_rkey, flow_ckey] = np.corrcoef(gcs_r, gcs_c)[0][1]
 
         output.append(reach_df)
 
     return output
 
 
-def zw_corrs(data):
+def agg_corrs(data, field_1, field_2):
     '''
-    Computes the correlation between Z_s and W_s for each flow and reach
+    Computes the (aggregate) correlation between field_1 and field_2 for each flow and reach
     '''
 
     flow_names = sorted(data.keys())
     reach_names = sorted(data.values()[0].keys())
 
-    output = DF(index=flow_names, columns=reach_names, title='Corr(Z_s,W_s)')
+    output = DF(index=flow_names, columns=reach_names, title='Corr(%s,%s)' % (field_1, field_2))
 
     for flow in flow_names:
         for reach in reach_names:
-            zs = data[flow][reach]['Z_s'].tolist()
-            ws = data[flow][reach]['W_s'].tolist()
-            corr = np.corrcoef(zs, ws)[0][1]
+            f1 = data[flow][reach][field_1].tolist()
+            f2 = data[flow][reach][field_2].tolist()
+            corr = np.corrcoef(f1, f2)[0][1]
             output.loc[flow, reach] = corr
 
     return output
 
 
-def czw_means(data):
+def gcs_means(data, field_1, field_2):
     '''
-    Computes mean C(Z_s,W_s) values for each flow and reach
+    Computes mean C(field_1,field_2) values for each flow and reach
     '''
 
     flow_names = sorted(data.keys())
     reach_names = sorted(data.values()[0].keys())
 
-    output = DF(index=flow_names, columns=reach_names, title='Mean C(Z_s,W_s)')
+    output = DF(index=flow_names, columns=reach_names, title='Mean C(%s,%s)' % (field_1, field_2))
 
     for flow in flow_names:
         for reach in reach_names:
-            czw = data[flow][reach]['Z_s_W_s'].tolist()
-            output.loc[flow, reach] = np.mean(czw)
+            gcs = data[flow][reach]['%s_%s' % (field_1, field_2)].tolist()
+            output.loc[flow, reach] = np.mean(gcs)
 
     return output
 
 
-def czw_pos_percents(data):
+def gcs_pos_percents(data, field_1, field_2):
     '''
-    Computes percent of C(Z_s,W_s) values above 0 for each flow and reach
+    Computes percent of C(field_1,field_2) values above 0 for each flow and reach
     '''
 
     flow_names = sorted(data.keys())
     reach_names = sorted(data.values()[0].keys())
 
-    output = DF(index=flow_names, columns=reach_names, title='Percent of C(Z_s,W_s) > 0')
+    output = DF(index=flow_names, columns=reach_names, title='Percent of C(%s,%s) > 0' % (field_1, field_2))
 
     for flow in flow_names:
         for reach in reach_names:
-            czw = data[flow][reach]['Z_s_W_s'].tolist()
-            n = len(czw)
-            num_above_0 = len([x for x in czw if x > 0])
+            gcs = data[flow][reach]['%s_%s' % (field_1, field_2)].tolist()
+            n = len(gcs)
+            num_above_0 = len([x for x in gcs if x > 0])
             percent = num_above_0 * 100.0 / n
             output.loc[flow, reach] = percent
 
     return output
 
 
-def zs_percents(data):
+def percents(data, field):
     '''
-    Computes percent of abs(Z_s) values above 1 for each flow and reach
-    '''
-    flow_names = sorted(data.keys())
-    reach_names = sorted(data.values()[0].keys())
-
-    output = DF(index=flow_names, columns=reach_names, title='Percent of |Z_s| > 1')
-
-    for flow in flow_names:
-        for reach in reach_names:
-            zs = data[flow][reach]['Z_s'].tolist()
-            n = len(zs)
-            num_abs_above_1 = len([x for x in zs if abs(x) > 1])
-            percent = num_abs_above_1 * 100.0 / n
-            output.loc[flow, reach] = percent
-
-    return output
-
-
-def ws_percents(data):
-    '''
-    Computes percent of abs(W_s) values above 1 for each flow and reach
+    Computes percent of abs(field) values above 1 for each flow and reach
     '''
     flow_names = sorted(data.keys())
     reach_names = sorted(data.values()[0].keys())
 
-    output = DF(index=flow_names, columns=reach_names, title='Percent of |W_s| > 1')
+    output = DF(index=flow_names, columns=reach_names, title='Percent of |%s| > 1' % field)
 
     for flow in flow_names:
         for reach in reach_names:
-            ws = data[flow][reach]['W_s'].tolist()
-            n = len(ws)
-            num_abs_above_1 = len([x for x in ws if abs(x) > 1])
+            series = data[flow][reach][field].tolist()
+            n = len(series)
+            num_abs_above_1 = len([x for x in series if abs(x) > 1])
             percent = num_abs_above_1 * 100.0 / n
             output.loc[flow, reach] = percent
 
@@ -192,34 +174,9 @@ def runs_test(series):
     return data
 
 
-def ww_runs_z(data):
+def ww_runs(data, field):
     '''
-    Computes runs and expected runs for values above/below median Z_s
-    '''
-    flow_names = sorted(data.keys())
-    reach_names = sorted(data.values()[0].keys())
-
-    output = []
-
-    # df for each reach, row for each flow, columns for runs, expected runs, expected run stdev, and z (number of expected stdevs difference between runs and expected runs)
-    for reach in reach_names:
-        # the (titled) dataframe to output for each reach
-        reach_df = DF(index=flow_names, columns=['Runs', 'Expected Runs', 'Expected Run StDev', 'Z'],
-                      title='Z_s WW runs test %s' % reach)
-
-        for flow in flow_names:
-            zs = data[flow][reach]['Z_s'].tolist()
-            runs_data = runs_test(zs)
-            reach_df.loc[flow, runs_data.keys()] = runs_data.values()
-
-        output.append(reach_df)
-
-    return output
-
-
-def ww_runs_w(data):
-    '''
-    Computes runs and expected runs for values above/below median W_s
+    Computes runs and expected runs for values above/below median field value
     '''
     flow_names = sorted(data.keys())
     reach_names = sorted(data.values()[0].keys())
@@ -230,11 +187,11 @@ def ww_runs_w(data):
     for reach in reach_names:
         # the (titled) dataframe to output for each reach
         reach_df = DF(index=flow_names, columns=['Runs', 'Expected Runs', 'Expected Run StDev', 'Z'],
-                      title='W_s WW runs test %s' % reach)
+                      title='%s WW runs test %s' % (field, reach))
 
         for flow in flow_names:
-            ws = data[flow][reach]['W_s'].tolist()
-            runs_data = runs_test(ws)
+            series = data[flow][reach][field].tolist()
+            runs_data = runs_test(series)
             reach_df.loc[flow, runs_data.keys()] = runs_data.values()
 
         output.append(reach_df)
@@ -362,126 +319,105 @@ def landform_nesting(data):
     return output
 
 
-def GCS_plots(data, odir=''):
-    '''Returns list of plots for Z_s, W_s at each flow, and C(Z_s,W_s) at each flow'''
+def series_plots(data, field, odir=''):
+    '''Returns list of plots for the given field at each flow'''
 
     flow_names = sorted(data.keys())
     output = []
 
-    # Z_s plot for each flow
+    # plot for each flow
     for flow in flow_names:
         dist = data[flow]['All']['dist_down'].tolist()
-        zs = data[flow]['All']['Z_s'].tolist()
+        series = data[flow]['All'][field].tolist()
         fig = plt.figure()
-        plt.title(r'$Z_s$' + ' %s' % flow.replace('pt', '.').replace('cms', ' cms'))
+        plt.title(r'$%s$' % field + ' %s' % flow.replace('pt', '.').replace('cms', ' cms'))
         plt.xlabel('Distance downstream (m)')
-        plt.ylabel('$Z_s$')
+        plt.ylabel(r'$%s$' % field)
         plt.grid()
-        plt.plot(dist, zs)
-        fig.savefig(odir + 'Zs %s.png' % flow.replace('pt', '.').replace('cms', ' cms'), bbox_inches='tight', pad_inches=0.1)
+        plt.plot(dist, series)
+        fig.savefig(odir + '%s %s.png' % (field, flow.replace('pt', '.').replace('cms', ' cms')), bbox_inches='tight', pad_inches=0.1)
         output.append(fig)
         plt.close(fig)
 
-    # Z_s plot for all flows
+    # one plot for all flows
     fig, ax = plt.subplots(1, 1, figsize=(24, 12))
-    ax.set_title(r'$Z_s$')
+    ax.set_title(r'$%s$' % field)
     ax.set_xlabel('Distance downstream (m)')
-    ax.set_ylabel(r'$Z_s (\sigma)$')
+    ax.set_ylabel(r'$%s (\sigma)$' % field)
     for flow in flow_names:
         dist = data[flow]['All']['dist_down'].tolist()
-        zs = data[flow]['All']['Z_s'].tolist()
-        ax.plot(dist, zs, label=flow.replace('pt', '.').replace('cms', ' cms'))
+        series = data[flow]['All'][field].tolist()
+        ax.plot(dist, series, label=flow.replace('pt', '.').replace('cms', ' cms'))
         ax.set_xlim(dist[0], dist[-1])
     ax.legend()
     ax.grid()
-    fig.savefig(odir + 'Zs_all_discharges.png', bbox_inches='tight', pad_inches=0.1)
+    fig.savefig(odir + '%s_all_discharges.png' % field, bbox_inches='tight', pad_inches=0.1)
     output.append(fig)
     plt.close(fig)
 
-    # W_s plot for each flow
-    for flow in flow_names:
-        dist = data[flow]['All']['dist_down'].tolist()
-        zs = data[flow]['All']['W_s'].tolist()
-        fig = plt.figure()
-        plt.title(r'$W_s$' + ' %s' % flow.replace('pt', '.').replace('cms', ' cms'))
-        plt.xlabel('Distance downstream (m)')
-        plt.ylabel(r'$W_s$')
-        plt.grid()
-        plt.plot(dist, zs)
-        fig.savefig(odir + 'Ws %s.png' % flow.replace('pt', '.').replace('cms', ' cms'), bbox_inches='tight', pad_inches=0.1)
-        output.append(fig)
-        plt.close(fig)
 
-    # W_s plot for all flows
-    fig, ax = plt.subplots(1, 1, figsize=(24, 12))
-    ax.set_title(r'$W_s$')
-    ax.set_xlabel('Distance downstream (m)')
-    ax.set_ylabel(r'$W_s (\sigma)$')
-    for flow in flow_names:
-        dist = data[flow]['All']['dist_down'].tolist()
-        ws = data[flow]['All']['W_s'].tolist()
-        ax.plot(dist, ws, label=flow.replace('pt', '.').replace('cms', ' cms'))
-        ax.set_xlim(dist[0], dist[-1])
-    ax.legend()
-    ax.grid()
-    fig.savefig(odir + 'Ws_all_discharges.png', bbox_inches='tight', pad_inches=0.1)
-    output.append(fig)
-    plt.close(fig)
+def GCS_plots(data, field_1, field_2, odir=''):
+    '''Returns list of plots for field_1, field_2 at each flow, and C(field_1,field_2) at each flow'''
+    field_abbrev = field_1[0].lower() + field_2[0].lower()
+    flow_names = sorted(data.keys())
+    output = []
 
     # GCS for all flows
     fig = plt.figure()
-    plt.title(r'$C(Z_s, W_s)$')
+    plt.title(r'$C(%s, %s)$' % (field_1, field_2))
     plt.xlabel('Distance downstream (m)')
-    plt.ylabel(r'$Z_s \cdot W_s$')
+    plt.ylabel(r'$%s \cdot %s$' % (field_1, field_2))
     plt.grid()
     for flow in flow_names:
         dist = data[flow]['All']['dist_down'].tolist()
-        czw = data[flow]['All']['Z_s_W_s'].tolist()
-        plt.plot(dist, czw, label=flow.replace('pt', '.').replace('cms', ' cms'))
+        gcs = data[flow]['All']['%s_%s' % (field_1, field_2)].tolist()
+        plt.plot(dist, gcs, label=flow.replace('pt', '.').replace('cms', ' cms'))
     plt.legend()
-    fig.savefig(odir + 'Czw.png', bbox_inches='tight', pad_inches=0.1)
+    fig.savefig(odir + 'C%s.png' % field_abbrev, bbox_inches='tight', pad_inches=0.1)
     output.append(fig)
     plt.close(fig)
 
-    # Z_s, W_s, GCS in one plot for each flow
+    # field_1, field_2, GCS in one plot for each flow
     for flow in flow_names:
         dist = data[flow]['All']['dist_down'].tolist()
-        zs = data[flow]['All']['Z_s'].tolist()
-        ws = data[flow]['All']['W_s'].tolist()
-        czw = data[flow]['All']['Z_s_W_s'].tolist()
+        s1 = data[flow]['All'][field_1].tolist()
+        s2 = data[flow]['All'][field_2].tolist()
+        gcs = data[flow]['All']['%s_%s' % (field_1, field_2)].tolist()
         fig, ax = plt.subplots(1, 1, figsize=(24, 12))
         ax.set_title(flow.replace('pt', '.').replace('cms', ' cms'))
-        ax.plot(dist, zs, label=r'$Z_s$')
-        ax.plot(dist, ws, label=r'$W_s$')
-        ax.plot(dist, czw, label=r'$C(Z_s, W_s)$')
+        ax.plot(dist, s1, label=r'$%s$' % field_1)
+        ax.plot(dist, s2, label=r'$%s$' % field_2)
+        ax.plot(dist, gcs, label=r'$C(%s, %s)$' % (field_1, field_2))
         ax.legend()
         ax.grid()
         ax.set_xlabel('Distance downstream (m)')
-        fig.savefig(odir + 'Czw_%s.png' % flow, bbox_inches='tight', pad_inches=0.1)
+        fig.savefig(odir + 'C%s_%s.png' % (field_abbrev, flow), bbox_inches='tight', pad_inches=0.1)
         output.append(fig)
         plt.close(fig)
-
 
     # GCS plot for each flow (points colored by landform type)
-    color_code = {-2: 'black', -1: 'blue', 0: 'grey', 1: 'orange', 2: 'red'}
-    code_dict = {-2: 'O', -1: 'CP', 0: 'NC', 1: 'WB', 2: 'NZ'}
-    for flow in flow_names:
-        dist = data[flow]['All']['dist_down'].tolist()
-        czw = data[flow]['All']['Z_s_W_s'].tolist()
-        code = data[flow]['All']['code'].tolist()
-        fig = plt.figure()
-        plt.title(r'$C(Z_s, W_s)$' + ' %s' % flow.replace('pt', '.').replace('cms', ' cms'))
-        plt.xlabel('Distance downstream (m)')
-        plt.ylabel(r'$Z_s \cdot W_s$')
-        plt.grid()
-        plt.scatter(dist, czw, c=[color_code[x] for x in code], s=4, edgecolors='none')
-        legend_elements = [Line2D([0], [0], marker='o', color='w', label=mu, markerfacecolor=color, markeredgecolor='none', markersize=10)
-                           for color, mu in [[color_code[x], code_dict[x]] for x in code_dict.keys()]]
-        plt.legend(handles=legend_elements, ncol=5)
-        fig.savefig(odir + 'Czw landforms %s.png' % flow, bbox_inches='tight', pad_inches=0.1)
-        output.append(fig)
-        plt.close(fig)
+    if 'W_s' in [field_1, field_2] and 'Z_s' in [field_1, field_2]:
+        color_code = {-2: 'black', -1: 'blue', 0: 'grey', 1: 'orange', 2: 'red'}
+        code_dict = {-2: 'O', -1: 'CP', 0: 'NC', 1: 'WB', 2: 'NZ'}
+        for flow in flow_names:
+            dist = data[flow]['All']['dist_down'].tolist()
+            czw = data[flow]['All']['W_s_Z_s'].tolist()
+            code = data[flow]['All']['code'].tolist()
+            fig = plt.figure()
+            plt.title(r'$C(Z_s, W_s)$' + ' %s' % flow.replace('pt', '.').replace('cms', ' cms'))
+            plt.xlabel('Distance downstream (m)')
+            plt.ylabel(r'$Z_s \cdot W_s$')
+            plt.grid()
+            plt.scatter(dist, czw, c=[color_code[x] for x in code], s=4, edgecolors='none')
+            legend_elements = [Line2D([0], [0], marker='o', color='w', label=mu, markerfacecolor=color, markeredgecolor='none', markersize=10)
+                               for color, mu in [[color_code[x], code_dict[x]] for x in code_dict.keys()]]
+            plt.legend(handles=legend_elements, ncol=5)
+            fig.savefig(odir + 'Czw landforms %s.png' % flow, bbox_inches='tight', pad_inches=0.1)
+            output.append(fig)
+            plt.close(fig)
 
+    # PSD 2D plot better than Fourier transform plots, replace this block
+    '''
     # Fourier transform of GCS at each flow
     fig = plt.figure()
     plt.title(r'$\hat{f}(Czw)$')
@@ -498,7 +434,6 @@ def GCS_plots(data, odir=''):
     plt.close(fig)
 
     # Fourier transform of Ws at each flow
-
     fig = plt.figure()
     plt.title(r'$\hat{f}(Ws)$')
     plt.xlabel('Frequency' + r'$(m^{-1})$')
@@ -527,25 +462,26 @@ def GCS_plots(data, odir=''):
     fig.savefig(odir + 'ZsFourier.png', bbox_inches='tight', pad_inches=0.1)
     output.append(fig)
     plt.close(fig)
+    '''
 
     # Autocorrelations
     fig, ax = plt.subplots(4, 3, sharex=True, sharey=True, figsize=(24, 12))
     for i, flow in enumerate(flow_names[:3]):
-        W_s = data[flow]['All']['W_s']
-        Z_s = data[flow]['All']['Z_s']
-        Czw = data[flow]['All']['Z_s_W_s']
+        s1 = data[flow]['All'][field_1]
+        s2 = data[flow]['All'][field_2]
+        gcs = data[flow]['All']['%s_%s' % (field_1, field_2)]
         dist_down = data[flow]['All']['dist_down']
         spacing = abs(dist_down[1] - dist_down[0])
         max_lags = int(len(dist_down)/2)
 
-        ax[0][i].acorr(W_s, maxlags=max_lags)
-        ax[0][i].set_ylabel('Ws Autocorrelation')
-        ax[1][i].acorr(Z_s, maxlags=max_lags)
-        ax[1][i].set_ylabel('Zs Autocorrelation')
-        ax[2][i].acorr(Czw, maxlags=max_lags)
-        ax[2][i].set_ylabel('Czw Autocorrelation')
-        ax[3][i].xcorr(W_s, Z_s, maxlags=max_lags)
-        ax[3][i].set_ylabel('Ws, Zs Cross-Correlation')
+        ax[0][i].acorr(s1, maxlags=max_lags)
+        ax[0][i].set_ylabel(r'$%s$' % field_1 + ' Autocorrelation')
+        ax[1][i].acorr(s2, maxlags=max_lags)
+        ax[1][i].set_ylabel(r'$%s$' % field_2 + ' Autocorrelation')
+        ax[2][i].acorr(gcs, maxlags=max_lags)
+        ax[2][i].set_ylabel('GCS Autocorrelation')
+        ax[3][i].xcorr(s1, s2, maxlags=max_lags)
+        ax[3][i].set_ylabel(r'$%s, %s$' % (field_1, field_2) + ' Cross-Correlation')
         ax[0][i].set_title(flow.replace('pt', '.').replace('cms', ' cms'))
         ax[3][i].set_xlabel('Lag (m)')
         for j in range(4):
@@ -553,7 +489,7 @@ def GCS_plots(data, odir=''):
             ax[j][i].set_xlim(-max_lags, max_lags)
             ticks = map(int, ax[j][i].get_xticks() * spacing)
             ax[j][i].set_xticklabels(ticks)
-    fig.savefig(odir + 'Acorrs.png', bbox_inches='tight', pad_inches=0.1)
+    fig.savefig(odir + 'Acorrs_%s.png' % field_abbrev, bbox_inches='tight', pad_inches=0.1)
 
     # GCS cross-correlation between flows?
 
@@ -565,12 +501,13 @@ def GCS_plots(data, odir=''):
     return output
 
 
-def clean_in_data(tables, reach_breaks=None):
+def clean_in_data(tables, fields, reach_breaks=None):
     '''
     Structures data for all further analyses
     
     Args:
-        tables: a list of filenames, each a .csv table for a particular discharge with the same number of rows, containing columns for dist_down, Z (detrended), W
+        tables: a list of filenames, each a .csv table for a particular discharge with the same number of rows, containing columns for dist_down, Z, W, V
+        fields: list of fields to use for standardizing/calculating GCS
         reach_breaks: a list of dist_down values where new reaches begin. If reach_breaks == None, it will just look at the entire dataset
     
     Returns:
@@ -580,11 +517,11 @@ def clean_in_data(tables, reach_breaks=None):
             second level keys: section of river, i.e. "All", "Reach 1", "Reach 2", ...
             second level values: pandas dataframes for the discharge specified by key 1 and reach specified by key 2
             
-            In each dataframe, columns are added for standardized Z_s, W_s, covariance series Z_s_W_s, and code (GCS landform classification)
+            In each dataframe, columns are added for standardized Z_s, W_s, V_s, GCS between all pairs, and code (GCS landform classification)
     '''
 
-    # make sure tables all have same number of rows!
-
+    std_fields = [field + '_s' for field in fields]
+    std_pairs = itertools.combinations(std_fields, 2)
     data = {}
 
     for table in tables:
@@ -592,19 +529,19 @@ def clean_in_data(tables, reach_breaks=None):
         flow_name = os.path.basename(table)
         try:
             flow_name = os.path.basename(table).split('_')[0]
-            logging.info('Using %s as flow name for %s'%(flow_name, table))
+            logging.info('Using %s as flow name for %s' % (flow_name, table))
         except:
             pass
 
-        # ensures each table has columns named dist_down, Z, and W for distance downstream, detrended elevation, and channel width
+        # ensures each table has columns named dist_down, W, Z, V for distance downstream, channel width, detrended elevation, velocity
         clean_in_table(table)
-        # creates columns for standardized Z_s and W_s
-        standardize(table)
-        # creates column Z_s_W_s for covariance series between standardized detrended elevation and standardized channel width
-        std_covar_series(table)
+        # creates columns for standardized fields
+        standardize(table, fields=fields)
+        # creates column for GCS series between all standardized field pairs
+        for std_pair in std_pairs:
+            std_covar_series(table, std_pair[0], std_pair[1])
         # adds column "code" for landforms based on covariance value
         landforms(table)
-
         # split up into second level dict based on reach
         if reach_breaks is not None:
             df = pd.read_csv(table)
@@ -646,51 +583,81 @@ def clean_in_data(tables, reach_breaks=None):
 
 
 def complete_analysis(tables, reach_breaks=None):
-    '''Executes various analyses'''
+    '''Executes various analyses
+
+    Args:
+        tables: list of file names for cross-section data tables
+        reach_breaks: list of distances downstream to set reach breaks
+    '''
+
     odir = os.path.dirname(__file__)+'\\results\\'
     if os.path.isdir(odir) == False:
         os.mkdir(odir)
 
+    fields = ['W', 'Z', 'V']
+    std_fields = [field + '_s' for field in fields]
+    std_pairs = list(itertools.combinations(std_fields, 2))
+
+    df_lol = []
+
     logging.info('Cleaning input data...')
-    data = clean_in_data(tables, reach_breaks=reach_breaks)
+    data = clean_in_data(tables, fields=fields, reach_breaks=reach_breaks)
     logging.info('OK')
 
-    logging.info('Computing C(Z_s,W_s) correlation between flows...')
-    czw_corrs = flow_cov_corrs(data)
+    logging.info('Computing GCS correlation between flows...')
+    for std_pair in std_pairs:
+        gcs_corrs = flow_cov_corrs(data, std_pair[0], std_pair[1])
+        df_lol.append(gcs_corrs)
     logging.info('OK')
 
-    logging.info('Computing Corr(Z_s,W_s)...')
-    corrs = zw_corrs(data)
+    logging.info('Computing correlations between field pairs...')
+    corrs_list = []
+    for std_pair in std_pairs:
+        corrs = agg_corrs(data, std_pair[0], std_pair[1])
+        corrs_list.append(corrs)
+    df_lol.append(corrs_list)
     logging.info('OK')
 
-    logging.info('Computing mean C(Z_s,W_s)...')
-    means = czw_means(data)
+    logging.info('Computing GCS means...')
+    means_list = []
+    for std_pair in std_pairs:
+        means = gcs_means(data, std_pair[0], std_pair[1])
+        means_list.append(means)
+    df_lol.append(means_list)
     logging.info('OK')
 
-    logging.info('Computing percentage of C(Z_s,W_s) values > 0')
-    percents = czw_pos_percents(data)
+    logging.info('Computing percentage of GCS values > 0')
+    pos_percents_list = []
+    for std_pair in std_pairs:
+        pos_percents = gcs_pos_percents(data, std_pair[0], std_pair[1])
+        pos_percents_list.append(pos_percents)
+    df_lol.append(pos_percents_list)
     logging.info('OK')
 
-    logging.info('Computing percentage of abs(Z_s) values > 1')
-    zs_percntz = zs_percents(data)
-    logging.info('OK')
-
-    logging.info('Computing percentage of abs(W_s) values > 1')
-    ws_percntz = ws_percents(data)
+    logging.info('Computing percentage of abs(std_field) values > 1')
+    percntz_list = []
+    for std_field in std_fields:
+        percntz = percents(data, field=std_field)
+        percntz_list.append(percntz)
+    df_lol.append(percntz_list)
     logging.info('OK')
 
     logging.info('Conducting Wald-Wolfowitz runs tests...')
-    ww_test_z = ww_runs_z(data)
-    ww_test_w = ww_runs_w(data)
+    for std_field in std_fields:
+        ww_test = ww_runs(data, field=std_field)
+        df_lol.append(ww_test)
     logging.info('OK')
 
     logging.info('Determining landform abundance...')
     landform_percents = landform_occupation(data)
+    df_lol.append(landform_percents)
     logging.info('OK')
 
     logging.info('Determining landform sequencing...')
     follows = landform_following(data)
+    df_lol.append(follows)
     follows_no_nc = landform_following(data, nc=False)
+    df_lol.append(follows_no_nc)
     logging.info('OK')
 
     logging.info('Determining nested landform abundance...')
@@ -698,6 +665,7 @@ def complete_analysis(tables, reach_breaks=None):
         nests = landform_nesting(data)
     else:
         nests = landform_nesting({col: data[col] for col in data.keys() if col in data.keys()[:3]})
+    df_lol.append([nests])
     logging.info('OK')
 
     logging.info('Writing outputs to files...')
@@ -705,17 +673,12 @@ def complete_analysis(tables, reach_breaks=None):
     # save tables to excel files/sheets
     writer = pd.ExcelWriter(odir + 'GCS_output_data.xlsx', engine='xlsxwriter')
 
-    for df_list in [czw_corrs, ww_test_z, ww_test_w, landform_percents, follows, follows_no_nc]:
+    for df_list in df_lol:
         for df in df_list:
             # 31 character limit for excel sheet name
             if len(df.title) > 31:
                 logging.info('%s title too long for excel sheet name. Shortening to 31 characters.' % df.title)
             df.to_excel(writer, sheet_name=df.title[:31])
-
-    for df in [corrs, means, percents, zs_percntz, ws_percntz, nests]:
-        if len(df.title) > 31:
-            logging.info('%s title too long for excel sheet name. Shortening to 31 characters.' % df.title)
-        df.to_excel(writer, sheet_name=df.title[:31])
 
     writer.save()
     logging.info('OK')
@@ -723,7 +686,10 @@ def complete_analysis(tables, reach_breaks=None):
     # save images of plots
 
     logging.info('Making plots...')
-    plots = GCS_plots(data, odir=odir)
+    for std_field in std_fields:
+        series_plots(data, std_field, odir=odir)
+    for std_pair in std_pairs:
+        GCS_plots(data, std_pair[0], std_pair[1], odir=odir)
     logging.info('OK')
     logging.info('Finished. Results in: %s' % odir)
 
@@ -731,12 +697,6 @@ def complete_analysis(tables, reach_breaks=None):
 
 
 if __name__ == '__main__':
-    '''
-    tables = []
-    flows = []
-    for table in tables:
-        df = classify_landform_polygons(table, table.replace('_joined_table.csv', '.shp') )
-    '''
 
     # initialize logger
     init_logger(__file__)
