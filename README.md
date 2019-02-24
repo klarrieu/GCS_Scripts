@@ -2,8 +2,7 @@
 
 This repository contains a set of tools for processing geospatial data. While some tools may have a variety of fluvial geomorphological applications, an emphasis is placed on analysis of [geomorphic covariance structures](http://pasternack.ucdavis.edu/research/projects/geomorphic-covariance-structures/) (GCS). To launch the entire toolkit, run `master.py`. Otherwise, there is an individual GUI included for each tool.
 
-Currently, these tools only analyze the GCS between channel width and detrended bed elevation. However, more GCS functionality is coming soon...
-
+Currently, these tools can analyze the GCS's between cross-sectional flow widths (W), velocities (V), and detrended bed elevations (Z), though a GCS could be made for any pair of morphological parameters.
 ## Prerequisites
 
 -ArcGIS + Python 2.7; i.e. the `arcpy` python package and ArcGIS license.
@@ -19,7 +18,7 @@ After installing any missing prerequisites, download this repository and launch 
 
 ### 1. LiDAR Data Processing
 
-This tool uses the open-source software LASTools to reclassify LiDAR points.
+This tool uses the open-source software LASTools to reclassify and separate LiDAR points.
 
 ### 2. Create Centerline
 
@@ -35,7 +34,7 @@ This tool creates a detrended DEM via linear or quadratic regression on the rive
 
 ### 5. Extract GCS Data
 
-This tool uses modeled wetted areas to produce a GCS series.
+This tool produces a table of GCS data for each discharge.
 
 ### 6. Classify Landforms
 
