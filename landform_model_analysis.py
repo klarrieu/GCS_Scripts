@@ -51,12 +51,31 @@ def landform_stratified_velocities(station_lines, detrended_DEM, vel_ras_list, b
     for mu_poly, vel_ras in zip(mu_XS_list, vel_ras_list):
 
         # get mean velocity series
-        mean_vel = arcpy.sa.ZonalStatisticsAsTable(mu_poly, 'code', vel_ras, os.path.join(os.path.dirname(vel_ras), 'v_avg_%s.dbf' % os.path.basename(vel_ras).replace('.flt', '')), statistics_type='MEAN')
+        depth_raster = vel_ras.replace('.flt', '_d.flt')
+
+        # (1) velocity * depth
+        vd = arcpy.Raster(vel_ras) * arcpy.Raster(depth_raster)
+        # (2) sum of depths in each mu
+        d_sums = arcpy.sa.ZonalStatistics(mu_poly,
+                                          'code',
+                                          depth_raster,
+                                          statistics_type='SUM'
+                                          )
+        # (3) raster (1) divided by raster (2) yields mean velocity when summed over each mu
+        v_weighted = vd / d_sums
+
+        mean_vel = arcpy.sa.ZonalStatisticsAsTable(mu_poly,
+                                                   'code',
+                                                   v_weighted,
+                                                   os.path.join(os.path.dirname(vel_ras), 'v_avg_%s.dbf' % os.path.basename(vel_ras).replace('.flt', '')),
+                                                   statistics_type='SUM'
+                                                   )
+
         mean_vel = arcpy.TableToExcel_conversion(mean_vel, str(mean_vel).replace('.dbf', '.xls'))
         df = pd.read_excel(str(mean_vel))
         q = os.path.basename(vel_ras).replace('cms.flt', '').replace('pt', '.')
         vals = [[float(q), float(v), int(code)]
-                for v, code in zip(df['MEAN'].tolist(), df['code'].tolist()) if code != -9999]
+                for v, code in zip(df['SUM'].tolist(), df['code'].tolist()) if code != -9999]
         series.extend(vals)
 
         # get 95th percentile velocity series
@@ -67,12 +86,12 @@ def landform_stratified_velocities(station_lines, detrended_DEM, vel_ras_list, b
     series = sorted(series)
 
     # make plot with line for each code, points are discharge and corresponding velocity
-    fig, ax = plt.subplots(1, 1, sharex=True)
+    fig, ax = plt.subplots(1, 1, sharex=True, figsize=(8, 4))
     fig.suptitle('Landform Stratified Velocities')
 
     for code in code_dict.keys():
         qs, vs = map(list, zip(*[x[:2] for x in series if x[2] == code]))
-        ax.semilogx(qs, vs, label=code_dict[code], color=color_code[code], marker='o', markersize=5)
+        ax.semilogx(qs, vs, label=code_dict[code], color=color_code[code], marker='o', markersize=2.5)
 
     ax.set(xlabel='Discharge(cms)', ylabel=r'Mean Velocity $(m/s)$')
     ax.grid()
@@ -96,14 +115,21 @@ if __name__ == '__main__':
     # copy rasters to folder for analysis
     for vel_ras in vel_ras_list:
         shutil.copyfile(vel_ras, 'G:\\Ken_RB\\c01\\mu_vel\\' + os.path.basename(vel_ras).replace('.', 'pt', 1).replace('RB_', '').replace('_003_V_002_00', ''))
+    
+    d_ras_list = get_all_files('G:\\Ken_RB\\c01\\Tuflow\\results\\003\\', suffix='d_002_00.flt')+get_all_files('G:\\Ken_RB\\c01\\Tuflow\\results\\003\\', suffix='d_002_00.hdr')
+        # copy rasters to folder for analysis
+    for d_ras in d_ras_list:
+        shutil.copyfile(d_ras, 'G:\\Ken_RB\\c01\\mu_vel\\' + os.path.basename(d_ras).replace('.', 'pt', 1).replace('RB_', '').replace('_003_d_002_00', '_d'))
     '''
-    vel_ras_list = get_all_files('G:\\Ken_RB\\c01\\mu_vel\\', suffix='.flt')
+    ras_list = get_all_files('G:\\Ken_RB\\c01\\mu_vel\\', suffix='.flt')
+    vel_ras_list = [ras for ras in ras_list if not ras.endswith('_d.flt')]
 
     landform_stratified_velocities(station_lines='G:\\Ken_RB\\c01\\stationing\\stations_100.shp',
                                    detrended_DEM='G:\\Ken_RB\\c01\\DEM\\Detrending\\quad_detrend\\detrended_DEM.tif',
                                    vel_ras_list=vel_ras_list,
                                    rm_up_length=55,
                                    rm_down_length=55)
+
 
     '''
     root = Tk()

@@ -131,13 +131,31 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buff
                                                     str(z_table).replace('.dbf', '.xls')
                                                     )
 
+            logging.info('OK')
             # granted we're given velocity rasters, let's calculate mean XS velocities bud
+            # also assuming we have depth rasters with identical file names as velocity rasters but with _d suffix
             logging.info('Getting mean cross-section velocities...')
+
+            depth_raster = wetted_raster.replace('.flt', '_d.flt')
+
+            # (1) velocity * depth
+            vd = arcpy.Raster(wetted_raster) * arcpy.Raster(depth_raster)
+
+            # (2) sum of depths in each xs poly
+            d_sums = arcpy.sa.ZonalStatistics(xs,
+                                              'FID',
+                                              depth_raster,
+                                              statistics_type='SUM'
+                                              )
+
+            # (3) raster (1) divided by raster (2) yields mean velocity when summed over each xs
+            v_weighted = vd / d_sums
+
             v_table = arcpy.sa.ZonalStatisticsAsTable(xs,
                                                       'FID',
-                                                      wetted_raster,
+                                                      v_weighted,
                                                       str(xs).replace('.shp', '_v_table.dbf'),
-                                                      statistics_type='MEAN'
+                                                      statistics_type='SUM'
                                                       )
             v_table = arcpy.TableToExcel_conversion(v_table,
                                                     str(v_table).replace('.dbf', '.xls')
@@ -162,7 +180,7 @@ def extract_channel_data(station_lines, detrended_DEM, wetted_rasters_list, buff
 
             # join attributes and z joined table to v table on FID
             v_df = pd.read_excel(str(v_table))
-            v_df = v_df.rename(columns={'MEAN': 'V'})
+            v_df = v_df.rename(columns={'SUM': 'V'})
             # dropping these columns because they will be re-added by next join
             # this also guarantees areas are at velocity raster resolution instead of DEM resolution
             joined_df = joined_df.drop(['OID', 'COUNT', 'AREA'], axis=1)

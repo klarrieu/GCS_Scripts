@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+import scipy.stats as stats
 import itertools
 from Tkinter import *
 from tkMessageBox import showerror
@@ -128,7 +129,7 @@ def get_all_files(dir, prefix='',suffix='', nesting=True):
     for path, subdirs, files in os.walk(dir):
         for name in files:
             if name.startswith(prefix) and name.endswith(suffix) and (nesting or (path == dir)):
-                l.append(os.path.join(path,name))
+                l.append(os.path.join(path, name))
     return l
 
 
@@ -168,14 +169,16 @@ class DF(pd.DataFrame):
             print(self.title)
         print(self)
 
+
 def ft(x, y):
-    '''Returns the fourier transform of the x,y data'''
+    '''Returns the fourier transform magnitude of the x,y data'''
     n = len(x)
     spacing = abs(x[1]-x[0])
     xf = np.linspace(0, 1/(2.0*spacing), n//2)
     yf = np.fft.fft(y)
     yf = list(map(lambda k: 2.0/n*np.abs(k), yf))[:n//2]
     return xf, yf
+
 
 def flt_to_poly(flt):
     """Converts .flt raster to a single polygon covering area that is not null"""
@@ -189,3 +192,81 @@ def flt_to_poly(flt):
                                             )
 
     return poly.getOutput(0)
+
+
+def white_noise_confidence_interval(n):
+    return -1.0/n - 2.0/np.sqrt(n), -1.0/n + 2.0/np.sqrt(n)
+
+
+def r_to_z(r):
+    return 0.5 * np.log((1+r)*1.0/(1-r))
+
+
+def z_to_r(z):
+    return (np.exp(2*z)-1)*1.0/(np.exp(2*z) + 1)
+
+
+def r_confidence_interval(r, n, alpha=0.05):
+    # returns confidence interval at the 1-alpha level for correlation of r with n observations
+    # when alpha=0.05, it returns the range of possible population correlations at the 95% confidence level
+    # so if 0 is not within the bounds, then the correlation is statistically significant at the 95% level
+    if r == 1:
+        return 1, 1
+    z = r_to_z(r)
+    se = 1.0 / np.sqrt(n - 3)
+    z_crit = stats.norm.ppf(1 - alpha / 2)  # 2-tailed z critical value
+
+    lo = z - z_crit * se
+    hi = z + z_crit * se
+
+    # Return a sequence
+    return z_to_r(lo), z_to_r(hi)
+
+
+def cox_acorr(series, maxlags=''):
+    '''
+    Returns two lists: lags and autocorrelation, using Cox variant 3 of ACF
+    '''
+    n = len(series)
+    if maxlags == '':
+        maxlags = int(n/2)
+    xbar = np.mean(series)
+    lags = range(maxlags+1)
+    acorrs = []
+    for k in lags:
+        if k == 0:
+            acorrs.append(1)
+        else:
+            s1 = series[:-k]
+            s2 = series[k:]
+            numerator = 1.0/(n - k) * sum([(x1 - xbar) * (x2 - xbar) for x1, x2 in zip(s1, s2)])
+            denominator = 1.0/n * sum([(xi - xbar)**2 for xi in series])
+            acorrs.append(numerator*1.0/denominator)
+
+    return lags, acorrs
+
+
+def ar1_acorr(series, maxlags=''):
+    '''Returns lag, autocorrelation, and confidence interval using geometric autocorrelation for AR1 fit of series'''
+    n = len(series)
+    if maxlags == '':
+        maxlags = int(n/2)
+    # use phi as lag-1 correlation of data
+    phi = np.corrcoef(series[:-1], series[1:])[0][1]
+    lags = range(maxlags+1)
+    acorrs = [phi**k for k in lags]
+    lower_band, upper_band = zip(*[r_confidence_interval(phi**k, n - k) for k in lags])
+
+    return lags, acorrs, lower_band, upper_band
+
+
+def white_noise_acf_ci(series, maxlags=''):
+    '''Returns the 95% confidence interval for white noise ACF'''
+    n = len(series)
+    if maxlags == '':
+        maxlags = int(n/2)
+    lags=range(maxlags+1)
+    lims = [white_noise_confidence_interval(n-k) for k in lags]
+    lower_lims, upper_lims = list(zip(*lims))
+
+    return lags, lower_lims, upper_lims

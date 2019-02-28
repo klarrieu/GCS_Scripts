@@ -155,7 +155,7 @@ def GCS_plot(table, units='m'):
         logging.info('Could not find columns Z_s, W_s, and W_s_Z_s with GCS data.')
         raise Exception(e)
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(24, 12))
     fig.suptitle(table)
 
     # Ws plot

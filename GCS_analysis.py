@@ -2,10 +2,15 @@ from file_functions import *
 from classify_landforms_GUI import *
 import pandas as pd
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+import matplotlib.tri as tri
 from Tkinter import *
 import logging
+
+# Set the default color cycle
+mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=['deepskyblue', 'royalblue', 'navy', 'black'])
 
 
 def flow_cov_corrs(data, field_1, field_2):
@@ -15,6 +20,9 @@ def flow_cov_corrs(data, field_1, field_2):
     output = []
 
     flow_names = sorted(data.keys())
+    # sort flow names by numerical value instead of alphabetically
+    flow_nums = [float(flow.replace('pt', '.').replace('cms', '')) for flow in flow_names]
+    flow_names = zip(*sorted(zip(flow_nums, flow_names)))[1]
     reach_names = sorted(data.values()[0].keys())
 
     # create dataframes of correlations between flows for each reach
@@ -324,12 +332,13 @@ def series_plots(data, field, odir=''):
 
     flow_names = sorted(data.keys())
     output = []
+    figsize=(12, 6)
 
-    # plot for each flow
+    # plot series for each flow
     for flow in flow_names:
         dist = data[flow]['All']['dist_down'].tolist()
         series = data[flow]['All'][field].tolist()
-        fig = plt.figure()
+        fig = plt.figure(figsize=figsize)
         plt.title(r'$%s$' % field + ' %s' % flow.replace('pt', '.').replace('cms', ' cms'))
         plt.xlabel('Distance downstream (m)')
         plt.ylabel(r'$%s$' % field)
@@ -340,7 +349,7 @@ def series_plots(data, field, odir=''):
         plt.close(fig)
 
     # one plot for all flows
-    fig, ax = plt.subplots(1, 1, figsize=(24, 12))
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
     ax.set_title(r'$%s$' % field)
     ax.set_xlabel('Distance downstream (m)')
     ax.set_ylabel(r'$%s (\sigma)$' % field)
@@ -361,18 +370,20 @@ def GCS_plots(data, field_1, field_2, odir=''):
     field_abbrev = field_1[0].lower() + field_2[0].lower()
     flow_names = sorted(data.keys())
     output = []
+    figsize = (12, 6)
 
     # GCS for all flows
-    fig = plt.figure()
-    plt.title(r'$C(%s, %s)$' % (field_1, field_2))
+    fig = plt.figure(figsize=figsize)
+    plt.ylabel(r'$C(%s, %s)$' % (field_1, field_2))
     plt.xlabel('Distance downstream (m)')
-    plt.ylabel(r'$%s \cdot %s$' % (field_1, field_2))
     plt.grid()
     for flow in flow_names:
         dist = data[flow]['All']['dist_down'].tolist()
         gcs = data[flow]['All']['%s_%s' % (field_1, field_2)].tolist()
         plt.plot(dist, gcs, label=flow.replace('pt', '.').replace('cms', ' cms'))
     plt.legend()
+    plt.axhline(0, linestyle='--', color='grey')
+    plt.xlim(dist[0], dist[-1])
     fig.savefig(odir + 'C%s.png' % field_abbrev, bbox_inches='tight', pad_inches=0.1)
     output.append(fig)
     plt.close(fig)
@@ -383,7 +394,7 @@ def GCS_plots(data, field_1, field_2, odir=''):
         s1 = data[flow]['All'][field_1].tolist()
         s2 = data[flow]['All'][field_2].tolist()
         gcs = data[flow]['All']['%s_%s' % (field_1, field_2)].tolist()
-        fig, ax = plt.subplots(1, 1, figsize=(24, 12))
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
         ax.set_title(flow.replace('pt', '.').replace('cms', ' cms'))
         ax.plot(dist, s1, label=r'$%s$' % field_1)
         ax.plot(dist, s2, label=r'$%s$' % field_2)
@@ -403,7 +414,7 @@ def GCS_plots(data, field_1, field_2, odir=''):
             dist = data[flow]['All']['dist_down'].tolist()
             czw = data[flow]['All']['W_s_Z_s'].tolist()
             code = data[flow]['All']['code'].tolist()
-            fig = plt.figure()
+            fig = plt.figure(figsize=figsize)
             plt.title(r'$C(Z_s, W_s)$' + ' %s' % flow.replace('pt', '.').replace('cms', ' cms'))
             plt.xlabel('Distance downstream (m)')
             plt.ylabel(r'$Z_s \cdot W_s$')
@@ -465,35 +476,139 @@ def GCS_plots(data, field_1, field_2, odir=''):
     '''
 
     # Autocorrelations
-    fig, ax = plt.subplots(4, 3, sharex=True, sharey=True, figsize=(24, 12))
+    fig, ax = plt.subplots(3, 3, sharex=True, sharey=True, figsize=figsize)
     for i, flow in enumerate(flow_names[:3]):
         s1 = data[flow]['All'][field_1]
         s2 = data[flow]['All'][field_2]
         gcs = data[flow]['All']['%s_%s' % (field_1, field_2)]
         dist_down = data[flow]['All']['dist_down']
         spacing = abs(dist_down[1] - dist_down[0])
-        max_lags = int(len(dist_down)/2)
+        maxlags = int(len(dist_down)/2)
+        lags, lower_white, upper_white = white_noise_acf_ci(s1, maxlags=maxlags)
 
-        ax[0][i].acorr(s1, maxlags=max_lags)
+        lags, ar1_acorrs, lower_red, upper_red = ar1_acorr(s1, maxlags=maxlags)
+        ax[0][i].plot(*cox_acorr(s1, maxlags=maxlags))
+        ax[0][i].plot(lags, ar1_acorrs, color='red')
+        ax[0][i].plot(lags, lower_red, '--', color='salmon')
+        ax[0][i].plot(lags, upper_red, '--', color='salmon')
+        ax[0][i].plot(lags, lower_white, '--', color='grey')
+        ax[0][i].plot(lags, upper_white, '--', color='grey')
         ax[0][i].set_ylabel(r'$%s$' % field_1 + ' Autocorrelation')
-        ax[1][i].acorr(s2, maxlags=max_lags)
+
+        lags, ar1_acorrs, lower_red, upper_red = ar1_acorr(s2, maxlags=maxlags)
+        ax[1][i].plot(*cox_acorr(s2, maxlags=maxlags))
+        ax[1][i].plot(lags, ar1_acorrs, color='red')
+        ax[1][i].plot(lags, lower_red, '--', color='salmon')
+        ax[1][i].plot(lags, upper_red, '--', color='salmon')
+        ax[1][i].plot(lags, lower_white, '--', color='grey')
+        ax[1][i].plot(lags, upper_white, '--', color='grey')
         ax[1][i].set_ylabel(r'$%s$' % field_2 + ' Autocorrelation')
-        ax[2][i].acorr(gcs, maxlags=max_lags)
+
+        lags, ar1_acorrs, lower_red, upper_red = ar1_acorr(gcs, maxlags=maxlags)
+        ax[2][i].plot(*cox_acorr(gcs, maxlags=maxlags))
+        ax[2][i].plot(lags, ar1_acorrs, color='red')
+        ax[2][i].plot(lags, lower_red, '--', color='salmon')
+        ax[2][i].plot(lags, upper_red, '--', color='salmon')
+        ax[2][i].plot(lags, lower_white, '--', color='grey')
+        ax[2][i].plot(lags, upper_white, '--', color='grey')
         ax[2][i].set_ylabel('GCS Autocorrelation')
-        ax[3][i].xcorr(s1, s2, maxlags=max_lags)
-        ax[3][i].set_ylabel(r'$%s, %s$' % (field_1, field_2) + ' Cross-Correlation')
+
         ax[0][i].set_title(flow.replace('pt', '.').replace('cms', ' cms'))
-        ax[3][i].set_xlabel('Lag (m)')
-        for j in range(4):
+        ax[2][i].set_xlabel('Lag (m)')
+        for j in range(3):
             ax[j][i].grid()
-            ax[j][i].set_xlim(-max_lags, max_lags)
+            ax[j][i].set_xlim(0, maxlags)
             ticks = map(int, ax[j][i].get_xticks() * spacing)
             ax[j][i].set_xticklabels(ticks)
     fig.savefig(odir + 'Acorrs_%s.png' % field_abbrev, bbox_inches='tight', pad_inches=0.1)
 
-    # GCS cross-correlation between flows?
+
+    # Autocorrelation Heat Map
+    qs = [float(flow.replace('pt', '.').replace('cms', '')) for flow in flow_names]
+    x = []
+    y = []
+    z = []
+    lower_whites = []
+    upper_whites = []
+    for i, flow in enumerate(flow_names):
+        s1 = data[flow]['All'][field_1]
+        s2 = data[flow]['All'][field_2]
+        gcs = data[flow]['All']['%s_%s' % (field_1, field_2)]
+        dist_down = data[flow]['All']['dist_down']
+        spacing = abs(dist_down[1] - dist_down[0])
+        maxlags = int(len(dist_down) / 2)
+        lags, lower_white, upper_white = white_noise_acf_ci(gcs, maxlags=maxlags)
+        lags, acorrs = cox_acorr(gcs, maxlags=maxlags)
+        # only include positive autocorrelations
+        for j, acorr_val in enumerate(acorrs):
+            if acorr_val > 0:
+                x.append(np.log10(qs[i]))
+                y.append(lags[j])
+                z.append(acorrs[j])
+                lower_whites.append(lower_white[j])
+                upper_whites.append(upper_white[j])
+
+    triang = tri.Triangulation(x, y)
+    # mask where acorr (z) is below the white noise threshold at that lag (y)
+    mask = []
+    for triangle in triang.triangles:
+        z_vals = [z[vertex] for vertex in triangle]
+        lws = [lower_whites[vertex] for vertex in triangle]
+        uws = [upper_whites[vertex] for vertex in triangle]
+        cond_1 = all(z_val > lw for z_val, lw in zip(z_vals, lws))
+        cond_2 = all(z_val < uw for z_val, uw in zip(z_vals, uws))
+        if cond_1 and cond_2:
+            mask_val = 1
+        else:
+            mask_val = 0
+        mask.append(mask_val)
+    triang.set_mask(mask)
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    tpc = ax.tripcolor(triang, z, cmap='jet')
+    ax.set(xlabel='Discharge (cms)', ylabel='Lag (m)')
+    qlabels = qs[:3] + [2, 3, 4, 5, 6, 8, 10]  # show less discharge ticks to make plot less cluttered
+    xticks = [np.log10(q) for q in qlabels]
+    ax.set_xticks(xticks)
+    xticklabels = [q for q in qlabels]
+    ax.set_xticklabels(xticklabels)
+    plt.xticks(rotation=-45)
+    yticklabels = map(int, ax.get_yticks() * spacing)
+    ax.set_yticklabels(yticklabels)
+    fig.colorbar(tpc)
+    fig.savefig(odir + 'Acorr_heatmap_%s.png' % field_abbrev, bbox_inches='tight', pad_inches=0.1)
+
+
+    # Bivariate Correlation vs discharge
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    corr_list = []
+    qs = [float(flow.replace('pt', '.').replace('cms', '')) for flow in flow_names]
+    for flow in flow_names:
+        s1 = data[flow]['All'][field_1]
+        s2 = data[flow]['All'][field_2]
+        corr = np.corrcoef(s1, s2)[0][1]
+        corr_list.append(corr)
+    qs, corr_list = zip(*sorted(zip(qs, corr_list)))
+
+    n = data[data.keys()[0]]['All'].shape[0]
+    lower_cband, upper_cband = r_confidence_interval(0, n)
+
+    ax.semilogx(qs, corr_list, '-o', color='black', markersize=2)
+    ax.axhline(lower_cband, linestyle='--', color='grey')
+    ax.axhline(upper_cband, linestyle='--', color='grey')
+    qticks = list(qs[:3]) + [2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0]
+    tick_labels = [float(str(q).rstrip('0').rstrip('.')) for q in qticks]
+    ax.set_xticks(qticks)
+    ax.set_xticklabels(tick_labels)
+    ax.set_xlim(min(qs), max(qs))
+    plt.xticks(rotation=-45)
+    ax.set(xlabel=r'Discharge $(m^3/s)$', ylabel='Correlation')
+    ax.grid()
+    fig.savefig(odir + 'bivar_corrs_%s.png' %field_abbrev, bbox_inches='tight', pad_inches=0.1)
 
     # power spectral density
+
+
 
     # quadrant histogram/ MU histogram?
 
