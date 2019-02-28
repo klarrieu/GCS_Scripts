@@ -24,10 +24,11 @@ def r_confidence_interval(r, n, alpha=0.05):
     # Return a sequence
     return (z_to_r(lo), z_to_r(hi))
 
-print(r_confidence_interval(0.07, 1000, alpha=0.05))
+print(r_confidence_interval(0.07, 1200, alpha=0.05))
 print(r_confidence_interval(0, 1000, alpha=0.05))
 
 def white_noise_confidence_interval(n):
     return (-1.0/n - 2.0/np.sqrt(n), -1.0/n + 2.0/np.sqrt(n))
 
 def ar1_confidence_interval():
+    return
