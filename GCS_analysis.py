@@ -6,6 +6,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import matplotlib.tri as tri
+import scipy.signal as sig
 from Tkinter import *
 import logging
 
@@ -369,6 +370,7 @@ def GCS_plots(data, field_1, field_2, odir=''):
     '''Returns list of plots for field_1, field_2 at each flow, and C(field_1,field_2) at each flow'''
     field_abbrev = field_1[0].lower() + field_2[0].lower()
     flow_names = sorted(data.keys())
+    qs = [float(flow.replace('pt', '.').replace('cms', '')) for flow in flow_names]
     output = []
     figsize = (12, 6)
 
@@ -427,53 +429,32 @@ def GCS_plots(data, field_1, field_2, odir=''):
             output.append(fig)
             plt.close(fig)
 
-    # PSD 2D plot better than Fourier transform plots, replace this block
-    '''
-    # Fourier transform of GCS at each flow
-    fig = plt.figure()
-    plt.title(r'$\hat{f}(Czw)$')
-    plt.xlabel('Frequency' + r'$(m^{-1})$')
-    plt.grid()
-    for flow in flow_names:
-        x = data[flow]['All']['dist_down'].tolist()
-        y = data[flow]['All']['Z_s_W_s'].tolist()
-        xf, yf = ft(x, y)
-        plt.semilogx(xf, yf, label=flow.replace('pt', '.').replace('cms', ' cms'))
-    plt.legend()
-    fig.savefig(odir + 'GCSFourier.png', bbox_inches='tight', pad_inches=0.1)
-    output.append(fig)
-    plt.close(fig)
 
-    # Fourier transform of Ws at each flow
-    fig = plt.figure()
-    plt.title(r'$\hat{f}(Ws)$')
-    plt.xlabel('Frequency' + r'$(m^{-1})$')
-    plt.grid()
+    # Bivariate Correlation vs discharge
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    corr_list = []
     for flow in flow_names:
-        x = data[flow]['All']['dist_down'].tolist()
-        y = data[flow]['All']['W_s'].tolist()
-        xf, yf = ft(x, y)
-        plt.semilogx(xf, yf, label=flow.replace('pt', '.').replace('cms', ' cms'))
-    plt.legend()
-    fig.savefig(odir + 'WsFourier.png', bbox_inches='tight', pad_inches=0.1)
-    output.append(fig)
-    plt.close(fig)
+        s1 = data[flow]['All'][field_1]
+        s2 = data[flow]['All'][field_2]
+        corr = np.corrcoef(s1, s2)[0][1]
+        corr_list.append(corr)
+    qs, corr_list = zip(*sorted(zip(qs, corr_list)))
 
-    # Fourier transform of Zs at each flow
-    fig = plt.figure()
-    plt.title(r'$\hat{f}(Zs)$')
-    plt.xlabel('Frequency' + r'$(m^{-1})$')
-    plt.grid()
-    for flow in flow_names:
-        x = data[flow]['All']['dist_down'].tolist()
-        y = data[flow]['All']['Z_s'].tolist()
-        xf, yf = ft(x, y)
-        plt.semilogx(xf, yf, label=flow.replace('pt', '.').replace('cms', ' cms'))
-    plt.legend()
-    fig.savefig(odir + 'ZsFourier.png', bbox_inches='tight', pad_inches=0.1)
-    output.append(fig)
-    plt.close(fig)
-    '''
+    n = data[data.keys()[0]]['All'].shape[0]
+    lower_cband, upper_cband = r_confidence_interval(0, n)
+
+    ax.semilogx(qs, corr_list, '-o', color='black', markersize=2)
+    ax.axhline(lower_cband, linestyle='--', color='grey')
+    ax.axhline(upper_cband, linestyle='--', color='grey')
+    qticks = list(qs[:3]) + [2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0]
+    tick_labels = [float(str(q).rstrip('0').rstrip('.')) for q in qticks]
+    ax.set_xticks(qticks)
+    ax.set_xticklabels(tick_labels)
+    ax.set_xlim(min(qs), max(qs))
+    plt.xticks(rotation=-45)
+    ax.set(xlabel=r'Discharge $(m^3/s)$', ylabel='Correlation')
+    ax.grid()
+    fig.savefig(odir + 'bivar_corrs_%s.png' % field_abbrev, bbox_inches='tight', pad_inches=0.1)
 
     # Autocorrelations
     fig, ax = plt.subplots(3, 3, sharex=True, sharey=True, figsize=figsize)
@@ -522,9 +503,7 @@ def GCS_plots(data, field_1, field_2, odir=''):
             ax[j][i].set_xticklabels(ticks)
     fig.savefig(odir + 'Acorrs_%s.png' % field_abbrev, bbox_inches='tight', pad_inches=0.1)
 
-
     # Autocorrelation Heat Map
-    qs = [float(flow.replace('pt', '.').replace('cms', '')) for flow in flow_names]
     x = []
     y = []
     z = []
@@ -567,7 +546,7 @@ def GCS_plots(data, field_1, field_2, odir=''):
     fig, ax = plt.subplots(1, 1, figsize=figsize)
     tpc = ax.tripcolor(triang, z, cmap='jet')
     ax.set(xlabel='Discharge (cms)', ylabel='Lag (m)')
-    qlabels = qs[:3] + [2, 3, 4, 5, 6, 8, 10]  # show less discharge ticks to make plot less cluttered
+    qlabels = list(qs[:3]) + [2, 3, 4, 5, 6, 8, 10]  # show less discharge ticks to make plot less cluttered
     xticks = [np.log10(q) for q in qlabels]
     ax.set_xticks(xticks)
     xticklabels = [q for q in qlabels]
@@ -579,39 +558,55 @@ def GCS_plots(data, field_1, field_2, odir=''):
     fig.savefig(odir + 'Acorr_heatmap_%s.png' % field_abbrev, bbox_inches='tight', pad_inches=0.1)
 
 
-    # Bivariate Correlation vs discharge
-    fig, ax = plt.subplots(1, 1, figsize=figsize)
-    corr_list = []
-    qs = [float(flow.replace('pt', '.').replace('cms', '')) for flow in flow_names]
-    for flow in flow_names:
+    # power spectral density
+    x = []
+    y = []
+    z = []
+    for i, flow in enumerate(flow_names):
         s1 = data[flow]['All'][field_1]
         s2 = data[flow]['All'][field_2]
-        corr = np.corrcoef(s1, s2)[0][1]
-        corr_list.append(corr)
-    qs, corr_list = zip(*sorted(zip(qs, corr_list)))
+        gcs = data[flow]['All']['%s_%s' % (field_1, field_2)]
+        dist_down = data[flow]['All']['dist_down']
+        spacing = abs(dist_down[1] - dist_down[0])
+        frequencies, psd = sig.periodogram(gcs, 1.0/3, window=sig.get_window('hamming', len(gcs)))
+        for j, psd_val in enumerate(psd):
+            x.append(np.log10(qs[i]))
+            y.append(frequencies[j])
+            z.append(psd[j])
+    std_z = [z_val*1.0/np.std(z) for z_val in z]
 
-    n = data[data.keys()[0]]['All'].shape[0]
-    lower_cband, upper_cband = r_confidence_interval(0, n)
+    triang = tri.Triangulation(x, y)
 
-    ax.semilogx(qs, corr_list, '-o', color='black', markersize=2)
-    ax.axhline(lower_cband, linestyle='--', color='grey')
-    ax.axhline(upper_cband, linestyle='--', color='grey')
-    qticks = list(qs[:3]) + [2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0]
-    tick_labels = [float(str(q).rstrip('0').rstrip('.')) for q in qticks]
-    ax.set_xticks(qticks)
-    ax.set_xticklabels(tick_labels)
-    ax.set_xlim(min(qs), max(qs))
+    mask = []
+    for triangle in triang.triangles:
+        z_vals = [z[vertex] for vertex in triangle]
+        lws = [lower_whites[vertex] for vertex in triangle]
+        uws = [upper_whites[vertex] for vertex in triangle]
+        cond_1 = all(z_val > lw for z_val, lw in zip(z_vals, lws))
+        cond_2 = all(z_val < uw for z_val, uw in zip(z_vals, uws))
+        if cond_1 and cond_2:
+            mask_val = 1
+        else:
+            mask_val = 0
+        mask.append(mask_val)
+    triang.set_mask(mask)
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    tpc = ax.tripcolor(triang, std_z, cmap='jet')
+    ax.set(xlabel='Discharge (cms)', ylabel='Spatial Frequency (cycles/m)')
+    qlabels = list(qs[:3]) + [2, 3, 4, 5, 6, 8, 10]  # show less discharge ticks to make plot less cluttered
+    xticks = [np.log10(q) for q in qlabels]
+    ax.set_xticks(xticks)
+    xticklabels = [q for q in qlabels]
+    ax.set_xticklabels(xticklabels)
     plt.xticks(rotation=-45)
-    ax.set(xlabel=r'Discharge $(m^3/s)$', ylabel='Correlation')
-    ax.grid()
-    fig.savefig(odir + 'bivar_corrs_%s.png' %field_abbrev, bbox_inches='tight', pad_inches=0.1)
+    ax.set_ylim(min(y), 0.01)
+    fig.colorbar(tpc)
+    fig.savefig(odir + 'PSD_heatmap_%s.png' % field_abbrev, bbox_inches='tight', pad_inches=0.1)
 
-    # power spectral density
+    # Landform stratified velocity
 
-
-
-    # quadrant histogram/ MU histogram?
-
+    # quadrant histogram/ MU histogram
 
     return output
 
