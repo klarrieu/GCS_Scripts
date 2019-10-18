@@ -18,6 +18,7 @@ def station_coords(centerline, station_lines, DEM):
                outdir + 'intersection_coords.xls'
                ])
 
+    arcpy.env.outputMFlag = "Disabled"
     # get intersection multipoint feature
     logging.info('Getting centerline/station line intersection points...')
     intersections = arcpy.Intersect_analysis([centerline, station_lines],
