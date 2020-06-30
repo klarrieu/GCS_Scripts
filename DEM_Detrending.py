@@ -291,6 +291,7 @@ def detrend_DEM(fit_table, DEM):
 @err_info
 @spatial_license
 def main_det(DEM, centerline, station_lines, slope_breaks=[], regression='linear'):
+    slope_breaks = sorted(slope_breaks)
     xyz_table = station_coords(centerline, station_lines, DEM)
     xyz_fit_table = trend_fit(xyz_table, station_lines, slope_breaks=slope_breaks, regression=regression, make_plot=True)
     detrend_DEM(xyz_fit_table, DEM)
